@@ -1,4 +1,29 @@
+# Dependencies
 node_modules/
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Next.js
+.next/
+out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# OS files
+.DS_Store
+
+# Build outputs
+dist/
+build/
+
+# Uploads (keep folder)
 uploads/*
 !uploads/.gitkeep
