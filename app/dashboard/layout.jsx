@@ -3,7 +3,7 @@
 import Sidebar from "@/components/Sidebar"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
-import { getToken, getUserData } from "@/lib/api"
+import { getToken, getUserData, removeToken } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { LogOut, Menu, X, ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -26,6 +26,7 @@ export default function DashboardLayout({ children }) {
   }, [router])
 
   const handleLogout = () => {
+    removeToken()
     router.push("/login")
   }
 

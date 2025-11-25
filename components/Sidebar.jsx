@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import {
   LayoutDashboard,
@@ -19,9 +19,11 @@ import {
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getUserRole, ROLES } from "@/lib/permissions"
+import { removeToken } from "@/lib/api"
 
 export default function Sidebar({ onNavigate }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [operacionesOpen, setOperacionesOpen] = useState(true)
   const [userRole, setUserRole] = useState(null)
 
@@ -37,6 +39,11 @@ export default function Sidebar({ onNavigate }) {
 
   const handleClick = () => {
     if (onNavigate) onNavigate()
+  }
+
+  const handleLogout = () => {
+    removeToken()
+    router.push("/login")
   }
 
   return (
@@ -165,11 +172,7 @@ export default function Sidebar({ onNavigate }) {
 
       <div className="p-4 border-t border-white/10">
         <button
-          onClick={() => {
-            localStorage.removeItem("token")
-            localStorage.removeItem("user")
-            window.location.href = "/login"
-          }}
+          onClick={handleLogout}
           className="flex items-center gap-3 px-4 py-3 w-full hover:bg-white/10 transition-colors rounded-lg"
         >
           <LogOut className="h-5 w-5" />
