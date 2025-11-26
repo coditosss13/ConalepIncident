@@ -22,6 +22,7 @@ export default function DashboardLayout({ children }) {
     }
 
     const user = getUserData()
+    console.log("[v0] User data in layout:", user)
     setUserData(user)
   }, [router])
 
