@@ -1,30 +1,81 @@
-Proyecto backend desarrollado en Node.js + Express + PostgreSQL, permite hasta ahora:
+# Sistema de Incidencias Escolares
 
-✔ Registrar incidencias
-✔ Relacionar alumnos involucrados
-✔ Consultar todas las incidencias
-✔ Consultar una incidencia por ID
+Sistema completo de gestión de incidencias escolares con Next.js y Express.
 
-//DEPENDENCIAS NECESARIAS
-express:	Framework para crear el servidor y rutas
-pg:	Cliente PostgreSQL
-pg-pool: (incluido en pg)	Manejo de pool de        conexiones.
-multer:	Subida de archivos/imágenes
-fs: (nativo)	Manejo de archivos
-path: (nativo)	Manejo de rutas de sistema
-dotenv:	Variables de entorno (.env)
-cors:	Permite peticiones desde frontend o Postman
-nodemon: (dev)	Reinicio automático del servidor
+## Estructura del Proyecto
 
-//INSTALACION DESDE CERO
-git clone https://github.com/TU-USUARIO/ConalepIncident.git
-cd ConalepIncident
+\`\`\`
+├── app/                    # Frontend Next.js
+│   ├── login/             # Página de login
+│   ├── register/          # Página de registro
+│   └── dashboard/         # Sistema principal
+│       ├── page.jsx       # Dashboard principal
+│       ├── incidencias/   # Módulo de incidencias
+│       ├── alumnos/       # Módulo de alumnos
+│       └── reportes/      # Módulo de reportes
+├── backend/               # Backend Express
+│   ├── src/
+│   │   ├── config/       # Configuración DB
+│   │   ├── controllers/  # Lógica de negocio
+│   │   ├── middleware/   # Middleware de autenticación
+│   │   ├── models/       # Modelos de datos
+│   │   └── routes/       # Rutas API
+│   ├── server.js         # Servidor Express
+│   └── package.json      # Dependencias backend
+├── components/            # Componentes React
+│   ├── Sidebar.jsx       # Barra lateral de navegación
+│   └── ui/               # Componentes UI (shadcn)
+├── lib/                   # Librerías y utilidades
+│   └── api.js            # Cliente API
+└── public/               # Archivos estáticos
+\`\`\`
+
+## Inicio Rápido
+
+### 1. Instalar dependencias
+
+\`\`\`bash
+# Dependencias del frontend
 npm install
 
-cp .env.example .env //editar credenciales
+# Dependencias del backend
+cd backend
+npm install
+cd ..
+\`\`\`
 
-npm install express pg multer dotenv cors
-npm install -D nodemon
+### 2. Configurar base de datos
 
-//CORRER SERVER
-npm run dev
+Edita el archivo `backend/.env` con tus credenciales de PostgreSQL:
+
+\`\`\`env
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=incidencias
+DB_PASSWORD=admin2004
+DB_PORT=5432
+PORT=4000
+JWT_SECRET=clave_secreta_123456
+\`\`\`
+
+### 3. Iniciar el proyecto
+
+\`\`\`bash
+# Iniciar frontend y backend simultáneamente
+npm run dev:full
+\`\`\`
+
+El frontend estará en: http://localhost:3000
+El backend estará en: http://localhost:4000
+
+## Scripts Disponibles
+
+- `npm run dev` - Inicia solo el frontend
+- `npm run backend` - Inicia solo el backend  
+- `npm run dev:full` - Inicia frontend y backend juntos
+
+## Tecnologías
+
+- **Frontend**: Next.js, React, Tailwind CSS
+- **Backend**: Express.js, PostgreSQL
+- **Autenticación**: JWT
