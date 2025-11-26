@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getToken, getIncidencias, getUserData } from "@/lib/api"
+import { getToken, getIncidencias } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, FileText, Printer, ImageIcon } from "lucide-react"
-import { ROLES } from "@/lib/permissions"
 
 export default function IncidenciasPage() {
   const router = useRouter()
@@ -21,8 +20,6 @@ export default function IncidenciasPage() {
   const [gravedad, setGravedad] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
-  const [userRole, setUserRole] = useState(null)
-  const [userId, setUserId] = useState(null)
 
   useEffect(() => {
     const token = getToken()
@@ -44,13 +41,6 @@ export default function IncidenciasPage() {
     }
 
     loadIncidencias()
-
-    const userData = getUserData()
-    if (userData) {
-      const userObj = JSON.parse(localStorage.getItem("user"))
-      setUserRole(userObj?.id_rol)
-      setUserId(userObj?.id_usuario)
-    }
   }, [router])
 
   const handleBuscar = () => {
@@ -108,17 +98,6 @@ export default function IncidenciasPage() {
     if (gravedad === "Grave") return "bg-red-500 text-white"
     if (gravedad === "Moderada") return "bg-cyan-500 text-white"
     return "bg-teal-500 text-white"
-  }
-
-  const canModifyIncidencia = (incidencia) => {
-    if (userRole === ROLES.ADMIN) return true
-    if (userRole === ROLES.COORDINADOR) return true
-    if (userRole === ROLES.DOCENTE && incidencia.id_usuario === userId) return true
-    return false
-  }
-
-  const canFinalizeIncidencia = () => {
-    return userRole === ROLES.ADMIN || userRole === ROLES.COORDINADOR
   }
 
   if (loading) {
@@ -270,19 +249,12 @@ export default function IncidenciasPage() {
                   <tr key={inc.id_incidencia} className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
-                        {canModifyIncidencia(inc) && (
-                          <Button size="sm" variant="destructive" className="h-7 px-2 text-xs">
-                            Derivar
-                          </Button>
-                        )}
-                        {canFinalizeIncidencia() && inc.estado !== "Resuelta" && (
-                          <Button size="sm" className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700">
-                            Finalizar
-                          </Button>
-                        )}
-                        {userRole === ROLES.DOCENTE && !canModifyIncidencia(inc) && (
-                          <span className="text-xs text-gray-500">Solo lectura</span>
-                        )}
+                        <Button size="sm" variant="destructive" className="h-7 px-2 text-xs">
+                          Derivar
+                        </Button>
+                        <Button size="sm" className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700">
+                          Finalizar
+                        </Button>
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">

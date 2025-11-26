@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken"
-import bcrypt from "bcryptjs"
 import { findUserByUsername, registerDocenteCompleto } from "../models/userModel.js"
 
 // Login
@@ -9,45 +8,21 @@ export const login = async (req, res) => {
     console.log("📩 Datos recibidos:", req.body)
 
     const { usuario, password } = req.body
-
-    if (!usuario || !password) {
-      return res.status(400).json({ message: "Usuario y contraseña son requeridos" })
-    }
-
     const user = await findUserByUsername(usuario)
 
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" })
 
-    const passwordMatch = await bcrypt.compare(password, user.password)
+    if (password !== user.password) return res.status(401).json({ message: "Contraseña incorrecta" })
 
-    if (!passwordMatch) {
-      return res.status(401).json({ message: "Contraseña incorrecta" })
-    }
-
-    const token = jwt.sign(
-      {
-        id: user.id_usuario,
-        rol: user.id_rol,
-        usuario: user.usuario,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "8h" },
-    )
-
-    console.log("✅ Token generado correctamente para usuario:", user.usuario)
+    const token = jwt.sign({ id: user.id_usuario, rol: user.id_rol }, process.env.JWT_SECRET || "clave_secreta", {
+      expiresIn: "8h",
+    })
 
     res.status(200).json({
       message: "Login exitoso",
       token,
-      usuario: {
-        id_usuario: user.id_usuario,
-        nombre: user.nombre,
-        primerApellido: user.primerApellido,
-        segundoApellido: user.segundoApellido,
-        usuario: user.usuario,
-        id_rol: user.id_rol,
-        id_docente: user.id_docente,
-      },
+      rol: user.id_rol,
+      nombre: `${user.nombre} ${user.primerapellido}`,
     })
   } catch (error) {
     console.error("❌ Error en login:", error.message)
@@ -63,11 +38,6 @@ export const registerDocente = async (req, res) => {
   console.log("📩 POST /register-docente", req.body)
 
   try {
-    const { password, usuario } = req.body
-    if (!password || !usuario) {
-      return res.status(400).json({ error: "Usuario y contraseña son requeridos" })
-    }
-
     const result = await registerDocenteCompleto(req.body)
 
     return res.status(201).json({

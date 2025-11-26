@@ -1,7 +1,4 @@
 import pool from "../config/db.js"
-import bcrypt from "bcryptjs" // Importar bcryptjs
-
-const SALT_ROUNDS = 10
 
 export const findUserByUsername = async (usuario) => {
   try {
@@ -45,29 +42,26 @@ export const registerDocenteCompleto = async (data) => {
 
     console.log("🟩 Docente creado:", docente)
 
-    const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS)
-    console.log("🔐 Contraseña hasheada correctamente")
-
     const usuarioQuery = `
       INSERT INTO usuario (
         nombre,
-        primerApellido,
-        segundoApellido,
+        primerapellido,
+        segundoapellido,
         usuario,
         password,
         id_rol,
         id_docente
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id_usuario, nombre, primerApellido, segundoApellido, usuario, id_rol, id_docente
+      RETURNING id_usuario, nombre, primerapellido, segundoapellido, usuario, id_rol, id_docente
     `
 
     const usuarioValues = [
       data.nombre,
-      data.primerApellido,
-      data.segundoApellido,
+      data.primerapellido,
+      data.segundoapellido,
       data.usuario,
-      hashedPassword,
+      data.password,
       data.id_rol,
       docente.id_docente,
     ]

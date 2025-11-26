@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { login, saveToken, saveUserData, getToken } from "@/lib/api"
+import { login, saveToken, saveUserData } from "@/lib/api"
 import { AlertCircle } from "lucide-react"
 import Image from "next/image"
 
@@ -17,13 +17,6 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const token = getToken()
-    if (token) {
-      router.push("/dashboard")
-    }
-  }, [router])
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
@@ -31,16 +24,8 @@ export default function LoginPage() {
 
     try {
       const response = await login(usuario, password)
-      console.log("[v0] Login response completa:", response)
-
-      const userData = response.usuario
-      console.log("[v0] User data extraído:", userData)
-      console.log("[v0] id_rol del usuario:", userData.id_rol)
-
       saveToken(response.token)
-      saveUserData(userData)
-
-      console.log("[v0] Datos guardados en localStorage")
+      saveUserData(response.rol, response.nombre)
       router.push("/dashboard")
     } catch (err) {
       setError(err.message || "Error al iniciar sesión")
