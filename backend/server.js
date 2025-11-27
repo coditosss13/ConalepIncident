@@ -55,8 +55,7 @@ pool
 
 // Rutas
 app.use("/api/auth", authRoutes)
-app.use("/api", incidenciaRoutes)
-
+app.use("/api/incidencias", incidenciaRoutes)
 app.get("/", (req, res) => res.send("API Backend - OK"))
 
 app.listen(PORT, () => console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`))

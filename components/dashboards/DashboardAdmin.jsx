@@ -30,28 +30,30 @@ export default function DashboardAdmin() {
   useEffect(() => {
     const loadAdminStats = async () => {
       try {
+        console.log("[v0] 🔄 Cargando estadísticas de administrador...")
         const token = getToken()
-
-        console.log("[v0] Obteniendo estadísticas de administrador...")
 
         const res = await fetch(`${API_URL}/api/incidencias/stats/admin`, {
           headers: { Authorization: `Bearer ${token}` },
         })
+
+        console.log("[v0] 📡 Respuesta del servidor:", res.status, res.statusText)
 
         if (!res.ok) {
           throw new Error(`Error ${res.status}: ${res.statusText}`)
         }
 
         const data = await res.json()
-        console.log("[v0] Datos recibidos del backend:", data)
+        console.log("[v0] 📦 Datos recibidos:", JSON.stringify(data, null, 2))
 
         if (data.ok && data.stats) {
+          console.log("[v0] ✅ Estadísticas cargadas correctamente")
           setStats(data.stats)
         } else {
           throw new Error("Respuesta inválida del servidor")
         }
       } catch (error) {
-        console.error("[v0] Error al cargar estadísticas de administrador:", error)
+        console.error("[v0] ❌ Error al cargar estadísticas:", error)
         setError(error.message)
       } finally {
         setLoading(false)
@@ -105,23 +107,26 @@ export default function DashboardAdmin() {
     )
   }
 
-  const incidenciasPorTipoData =
-    stats.incidenciasPorTipo?.map((item) => ({
-      name: item.tipo,
-      value: Number.parseInt(item.cantidad),
-    })) || []
+  const incidenciasPorTipoData = (stats.incidenciasPorTipo || []).map((item) => ({
+    tipo: item.tipo,
+    cantidad: Number.parseInt(item.cantidad) || 0,
+  }))
 
-  const incidenciasPorGravedadData =
-    stats.incidenciasPorGravedad?.map((item) => ({
-      name: item.gravedad,
-      value: Number.parseInt(item.cantidad),
-    })) || []
+  const tendenciasPorMesData = (stats.tendenciasPorMes || []).map((item) => ({
+    mes: item.mes,
+    total: Number.parseInt(item.total) || 0,
+    criticas: Number.parseInt(item.criticas) || 0,
+  }))
 
-  const pendientes = stats.incidenciasPorEstado?.find((e) => e.estado === "Pendiente")?.cantidad || 0
-  const resueltas = stats.incidenciasPorEstado?.find((e) => e.estado === "Resuelta")?.cantidad || 0
-  const graves = incidenciasPorGravedadData.find((g) => g.name === "Grave")?.value || 0
+  const alumnosData = stats.alumnosConMasIncidencias || []
+
+  const pendientes = stats.pendientes || 0
+  const resueltas = stats.resueltas || 0
+  const graves = stats.graves || 0
 
   const COLORS = ["#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#14b8a6", "#ec4899"]
+
+  const totalIncidenciasPorTipo = incidenciasPorTipoData.reduce((sum, item) => sum + item.cantidad, 0)
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
@@ -171,30 +176,47 @@ export default function DashboardAdmin() {
           </CardHeader>
           <CardContent>
             {incidenciasPorTipoData.length === 0 ? (
-              <div className="h-[300px] flex items-center justify-center text-center text-gray-500">
+              <div className="h-[400px] flex items-center justify-center text-center text-gray-500">
                 <p>No hay incidencias registradas para mostrar la distribución.</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={incidenciasPorTipoData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {incidenciasPorTipoData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <div>
+                <ResponsiveContainer width="100%" height={320}>
+                  <PieChart>
+                    <Pie
+                      data={incidenciasPorTipoData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ tipo, cantidad }) => {
+                        const porcentaje = ((cantidad / totalIncidenciasPorTipo) * 100).toFixed(0)
+                        return `${tipo} ${porcentaje}%`
+                      }}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="cantidad"
+                    >
+                      {incidenciasPorTipoData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  {incidenciasPorTipoData.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="text-gray-700">
+                        {item.tipo}: {item.cantidad}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -204,26 +226,29 @@ export default function DashboardAdmin() {
             <CardTitle>Alumnos con Más Incidencias</CardTitle>
           </CardHeader>
           <CardContent>
-            {!stats.alumnosConMasIncidencias || stats.alumnosConMasIncidencias.length === 0 ? (
-              <div className="h-[300px] flex items-center justify-center text-center text-gray-500">
+            {alumnosData.length === 0 ? (
+              <div className="h-[400px] flex items-center justify-center text-center text-gray-500">
                 <p>Aún no hay alumnos con incidencias registradas.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {stats.alumnosConMasIncidencias.map((alumno, index) => (
+                {alumnosData.map((alumno, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#0c6857] text-white flex items-center justify-center font-bold text-sm">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center font-bold text-lg flex-shrink-0">
                         {index + 1}
                       </div>
-                      <span className="font-medium text-sm">{alumno.nombre_completo}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900">{alumno.nombre_completo}</p>
+                        <p className="text-sm text-gray-500">Grupo: {alumno.grupo || "Sin grupo"}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold text-[#0c6857]">{alumno.total_incidencias}</span>
-                      <span className="text-xs text-gray-500">casos</span>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-red-500">{alumno.total_incidencias}</div>
+                      <div className="text-xs text-gray-500">incidencias</div>
                     </div>
                   </div>
                 ))}
@@ -235,36 +260,40 @@ export default function DashboardAdmin() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tendencias por Período Escolar</CardTitle>
+          <CardTitle>Tendencias por Periodo Escolar</CardTitle>
         </CardHeader>
         <CardContent>
-          {!stats.tendenciasPorMes || stats.tendenciasPorMes.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center text-center text-gray-500">
+          {tendenciasPorMesData.length === 0 ? (
+            <div className="h-[350px] flex items-center justify-center text-center text-gray-500">
               <p>No hay datos de incidencias para este periodo escolar.</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={stats.tendenciasPorMes}>
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart data={tendenciasPorMesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="mes" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px" }}
+                />
                 <Legend />
                 <Line
                   type="monotone"
                   dataKey="total"
                   stroke="#14b8a6"
-                  strokeWidth={2}
-                  name="Total"
-                  dot={{ fill: "#14b8a6", r: 5 }}
+                  strokeWidth={3}
+                  name="Total Incidencias"
+                  dot={{ fill: "#14b8a6", r: 6 }}
+                  activeDot={{ r: 8 }}
                 />
                 <Line
                   type="monotone"
                   dataKey="criticas"
                   stroke="#ef4444"
-                  strokeWidth={2}
-                  name="Críticas"
-                  dot={{ fill: "#ef4444", r: 5 }}
+                  strokeWidth={3}
+                  name="Incidencias Críticas"
+                  dot={{ fill: "#ef4444", r: 6 }}
+                  activeDot={{ r: 8 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -272,9 +301,7 @@ export default function DashboardAdmin() {
         </CardContent>
       </Card>
 
-      {/* Ranking de Grupos e Actividad de Usuarios */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Ranking de Grupos con Más Incidencias */}
         <Card>
           <CardHeader>
             <CardTitle>Incidencias por Grupo</CardTitle>
@@ -299,7 +326,6 @@ export default function DashboardAdmin() {
           </CardContent>
         </Card>
 
-        {/* Actividad de Usuarios (Bitácora) */}
         <Card>
           <CardHeader>
             <CardTitle>Actividad de Usuarios</CardTitle>

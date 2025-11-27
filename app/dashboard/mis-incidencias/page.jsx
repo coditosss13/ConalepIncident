@@ -20,17 +20,16 @@ export default function MisIncidenciasPage() {
   const fetchMisIncidencias = async () => {
     try {
       const token = localStorage.getItem("token")
-      const user = JSON.parse(localStorage.getItem("user"))
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/incidencias/mis-incidencias`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/incidencias/mis-incidencias`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setIncidencias(data)
+        const result = await response.json()
+        setIncidencias(result.data || [])
       }
     } catch (error) {
       console.error("Error al cargar incidencias:", error)

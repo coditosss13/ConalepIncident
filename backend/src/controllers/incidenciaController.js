@@ -18,6 +18,7 @@ import {
   obtenerEstadisticasPorPeriodo as getStatsByPeriod,
   obtenerRankingGrupos as getGroupRanking,
 } from "../models/incidenciaModel.js"
+import pool from "../config/db.js"
 
 export const registrarIncidencia = async (req, res) => {
   try {
@@ -142,25 +143,27 @@ export const aplicarAccionCorrectiva = async (req, res) => {
 
 export const obtenerEstadisticasAdmin = async (req, res) => {
   try {
-    console.log("[v0] 📊 Ejecutando obtenerEstadisticasAdmin...")
+    console.log("[v0] 📊 Obteniendo estadísticas de administrador...")
+
     const stats = await getStatsAdmin()
-    console.log("[v0] ✅ Estadísticas obtenidas exitosamente:", Object.keys(stats))
-    res.json({ ok: true, stats })
+
+    console.log("[v0] ✅ Estadísticas obtenidas del modelo")
+    console.log("[v0] 📦 Datos:", JSON.stringify(stats, null, 2))
+
+    res.json({
+      ok: true,
+      stats: stats,
+    })
   } catch (err) {
-    console.error("[v0] ❌ Error al obtener estadísticas admin:", err)
-    res.status(500).json({ ok: false, error: err.message })
+    console.error("[v0] ❌ Error en obtenerEstadisticasAdmin:", err)
+    res.status(500).json({
+      ok: false,
+      error: err.message,
+    })
   }
 }
 
-export const obtenerEstadisticasCoordinador = async (req, res) => {
-  try {
-    const stats = await getStatsCoord()
-    res.json({ ok: true, stats })
-  } catch (err) {
-    console.error("Error al obtener estadísticas coordinador:", err)
-    res.status(500).json({ ok: false, error: err.message })
-  }
-}
+// Ya no se usa, ahora solo existe obtenerEstadisticasPrefecto
 
 export const obtenerEstadisticasPrefecto = async (req, res) => {
   try {
@@ -282,6 +285,92 @@ export const obtenerRankingGrupos = async (req, res) => {
     res.json({ ok: true, data: ranking })
   } catch (err) {
     console.error("Error al obtener ranking de grupos:", err)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+}
+
+export const obtenerGruposDocente = async (req, res) => {
+  try {
+    const { id_docente } = req.params
+
+    const result = await pool.query(
+      `SELECT g.id_grupo, g.nombre, g.grado, g.periodo
+       FROM grupo g
+       INNER JOIN docente_grupo dg ON g.id_grupo = dg.id_grupo
+       WHERE dg.id_docente = $1
+       ORDER BY g.nombre`,
+      [id_docente],
+    )
+
+    res.json({ ok: true, data: result.rows })
+  } catch (err) {
+    console.error("Error al obtener grupos del docente:", err)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+}
+
+export const obtenerAlumnosPorGrupo = async (req, res) => {
+  try {
+    const { id_grupo } = req.params
+
+    const result = await pool.query(
+      `SELECT 
+        a.id_alumno,
+        a.nombre,
+        a.primerApellido,
+        a.segundoApellido,
+        a.matricula,
+        g.nombre as grupo_nombre,
+        g.grado,
+        g.periodo
+       FROM alumno a
+       INNER JOIN grupo g ON a.id_grupo = g.id_grupo
+       WHERE a.id_grupo = $1
+       ORDER BY a.primerApellido, a.nombre`,
+      [id_grupo],
+    )
+
+    res.json({ ok: true, data: result.rows })
+  } catch (err) {
+    console.error("Error al obtener alumnos del grupo:", err)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+}
+
+export const obtenerAccionesCorrectivas = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        ac.id_accion,
+        ac.descripcion,
+        ac.fechaAplicacion,
+        i.id_incidencia,
+        i.gravedad,
+        i.estado,
+        ti.nombre as tipo_incidencia,
+        u.nombre as usuario_nombre,
+        u.primerApellido as usuario_apellido,
+        STRING_AGG(
+          CONCAT(a.nombre, ' ', a.primerApellido, ' ', COALESCE(a.segundoApellido, '')),
+          ', '
+        ) as alumnos
+       FROM acc_correctiva ac
+       INNER JOIN incidencia i ON ac.id_incidencia = i.id_incidencia
+       INNER JOIN tipo_incidencia ti ON i.id_tipoIncidencia = ti.id_tipoIncidencia
+       INNER JOIN usuario u ON ac.id_usuario = u.id_usuario
+       LEFT JOIN alumno_incidencia ai ON i.id_incidencia = ai.id_incidencia
+       LEFT JOIN alumno a ON ai.id_alumno = a.id_alumno
+       GROUP BY ac.id_accion, ac.descripcion, ac.fechaAplicacion, 
+                i.id_incidencia, i.gravedad, i.estado, ti.nombre,
+                u.nombre, u.primerApellido
+       ORDER BY ac.fechaAplicacion DESC
+       LIMIT 100`,
+      [],
+    )
+
+    res.json({ ok: true, data: result.rows })
+  } catch (err) {
+    console.error("Error al obtener acciones correctivas:", err)
     res.status(500).json({ ok: false, error: err.message })
   }
 }

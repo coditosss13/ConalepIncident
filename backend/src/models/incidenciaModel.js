@@ -124,21 +124,17 @@ export const obtenerIncidenciaPorId = async (id) => {
 export const obtenerIncidenciasPorDocente = async (id_usuario) => {
   const query = `
     SELECT 
-        i.id_incidencia,
-        i.gravedad,
-        i.observaciones,
-        i.estado,
-        i.fecha,
-        u.nombre AS docente,
-        t.nombre AS tipo_incidencia,
-        COALESCE(STRING_AGG(a.nombre || ' ' || a.primerApellido, ', '), 'Sin alumno') AS alumno
+      i.id_incidencia,
+      i.gravedad,
+      i.observaciones,
+      i.estado,
+      i.fecha,
+      u.nombre AS usuario,
+      t.nombre AS tipo_incidencia
     FROM incidencia i
     INNER JOIN usuario u ON u.id_usuario = i.id_usuario
     INNER JOIN tipo_incidencia t ON t.id_tipoIncidencia = i.id_tipoIncidencia
-    LEFT JOIN alumno_incidencia ai ON ai.id_incidencia = i.id_incidencia
-    LEFT JOIN alumno a ON a.id_alumno = ai.id_alumno
     WHERE i.id_usuario = $1
-    GROUP BY i.id_incidencia, i.gravedad, i.observaciones, i.estado, i.fecha, u.nombre, t.nombre
     ORDER BY i.fecha DESC;
   `
 
@@ -149,21 +145,17 @@ export const obtenerIncidenciasPorDocente = async (id_usuario) => {
 export const obtenerIncidenciasPendientes = async () => {
   const query = `
     SELECT 
-        i.id_incidencia,
-        i.gravedad,
-        i.observaciones,
-        i.estado,
-        i.fecha,
-        u.nombre AS docente,
-        t.nombre AS tipo_incidencia,
-        COALESCE(STRING_AGG(a.nombre || ' ' || a.primerApellido, ', '), 'Sin alumno') AS alumno
+      i.id_incidencia,
+      i.gravedad,
+      i.observaciones,
+      i.estado,
+      i.fecha,
+      u.nombre AS usuario,
+      t.nombre AS tipo_incidencia
     FROM incidencia i
     INNER JOIN usuario u ON u.id_usuario = i.id_usuario
     INNER JOIN tipo_incidencia t ON t.id_tipoIncidencia = i.id_tipoIncidencia
-    LEFT JOIN alumno_incidencia ai ON ai.id_incidencia = i.id_incidencia
-    LEFT JOIN alumno a ON ai.id_alumno = a.id_alumno
     WHERE i.estado = 'Pendiente'
-    GROUP BY i.id_incidencia, i.gravedad, i.observaciones, i.estado, i.fecha, u.nombre, t.nombre
     ORDER BY i.fecha DESC;
   `
 
@@ -171,32 +163,33 @@ export const obtenerIncidenciasPendientes = async () => {
   return result.rows
 }
 
-export const validarIncidencia = async (id_incidencia, aprobada, observaciones, id_usuario_valida) => {
+export const validarIncidencia = async (id_incidencia, aprobada, observaciones, id_usuario) => {
   const client = await pool.connect()
-
+  
   try {
     await client.query("BEGIN")
 
-    const nuevoEstado = aprobada ? "En Proceso" : "Rechazada"
+    const nuevoEstado = aprobada ? 'Aprobada' : 'Rechazada'
+    
+    const updateQuery = `
+      UPDATE incidencia 
+      SET estado = $1, 
+          observaciones = COALESCE($2, observaciones)
+      WHERE id_incidencia = $3
+      RETURNING *;
+    `
+    
+    const result = await client.query(updateQuery, [nuevoEstado, observaciones, id_incidencia])
 
-    // Actualizar estado de la incidencia
     await client.query(
-      `UPDATE incidencia 
-       SET estado = $1 
-       WHERE id_incidencia = $2`,
-      [nuevoEstado, id_incidencia],
-    )
-
-    // Registrar en bitácora
-    await client.query(
-      `INSERT INTO bitacora (accion, fecha, id_usuario, id_incidencia)
-       VALUES ($1, NOW(), $2, $3)`,
-      [`Incidencia ${aprobada ? "aprobada" : "rechazada"}: ${observaciones}`, id_usuario_valida, id_incidencia],
+      `INSERT INTO bitacora (accion, id_usuario, fecha)
+       VALUES ($1, $2, NOW())`,
+      [`Validó incidencia #${id_incidencia} como ${nuevoEstado}`, id_usuario]
     )
 
     await client.query("COMMIT")
-
-    return { ok: true, mensaje: `Incidencia ${aprobada ? "aprobada" : "rechazada"} correctamente` }
+    
+    return result.rows[0]
   } catch (err) {
     await client.query("ROLLBACK")
     console.error("Error al validar incidencia:", err)
@@ -206,61 +199,59 @@ export const validarIncidencia = async (id_incidencia, aprobada, observaciones, 
   }
 }
 
-export const aplicarAccionCorrectiva = async (id_incidencia, descripcion, fecha_aplicacion, id_usuario) => {
-  const client = await pool.connect()
-
-  try {
-    await client.query("BEGIN")
-
-    // Insertar acción correctiva
-    const result = await client.query(
-      `INSERT INTO acc_correctiva (descripcion, fechaAplicacion, id_usuario, id_incidencia)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id_accion`,
-      [descripcion, fecha_aplicacion, id_usuario, id_incidencia],
-    )
-
-    // Actualizar estado de incidencia
-    await client.query(
-      `UPDATE incidencia 
-       SET estado = 'Resuelta' 
-       WHERE id_incidencia = $1`,
-      [id_incidencia],
-    )
-
-    // Registrar en bitácora
-    await client.query(
-      `INSERT INTO bitacora (accion, fecha, id_usuario, id_incidencia)
-       VALUES ($1, NOW(), $2, $3)`,
-      [`Acción correctiva aplicada: ${descripcion}`, id_usuario, id_incidencia],
-    )
-
-    await client.query("COMMIT")
-
-    return { ok: true, mensaje: "Acción correctiva aplicada correctamente", id_accion: result.rows[0].id_accion }
-  } catch (err) {
-    await client.query("ROLLBACK")
-    console.error("Error al aplicar acción correctiva:", err)
-    throw err
-  } finally {
-    client.release()
-  }
-}
-
 export const obtenerEstadisticasAdmin = async () => {
+  // ... resto del código
   try {
-    // Total de incidencias
-    const totalIncidencias = await pool.query("SELECT COUNT(*) as total FROM incidencia")
+    console.log("[v0] 📊 Obteniendo estadísticas de administrador...")
 
     const incidenciasPorTipo = await pool.query(`
       SELECT 
-        ti.nombre AS tipo,
+        ti.categoria AS tipo,
         COUNT(i.id_incidencia) AS cantidad
       FROM tipo_incidencia ti
       LEFT JOIN incidencia i ON i.id_tipoIncidencia = ti.id_tipoIncidencia
-      GROUP BY ti.nombre
+      GROUP BY ti.categoria
+      HAVING COUNT(i.id_incidencia) > 0
       ORDER BY cantidad DESC
     `)
+
+    const tendenciasPorMes = await pool.query(`
+      SELECT 
+        TO_CHAR(fecha, 'Mon') AS mes,
+        EXTRACT(MONTH FROM fecha) AS mes_numero,
+        COUNT(*) AS total,
+        SUM(CASE WHEN gravedad = 'Grave' THEN 1 ELSE 0 END) AS criticas
+      FROM incidencia
+      WHERE fecha >= NOW() - INTERVAL '6 months'
+      GROUP BY TO_CHAR(fecha, 'Mon'), EXTRACT(MONTH FROM fecha)
+      ORDER BY mes_numero
+    `)
+
+    const alumnosConMasIncidencias = await pool.query(`
+      SELECT 
+        a.id_alumno,
+        a.nombre || ' ' || a.primerApellido || COALESCE(' ' || a.segundoApellido, '') AS nombre_completo,
+        g.nombre AS grupo,
+        COUNT(ai.id_incidencia) AS total_incidencias
+      FROM alumno a
+      INNER JOIN alumno_incidencia ai ON a.id_alumno = ai.id_alumno
+      LEFT JOIN grupo g ON a.id_grupo = g.id_grupo
+      GROUP BY a.id_alumno, nombre_completo, g.nombre
+      ORDER BY total_incidencias DESC
+      LIMIT 10
+    `)
+
+    // Total de incidencias
+    const totalIncidencias = await pool.query("SELECT COUNT(*) as total FROM incidencia")
+
+    // Incidencias pendientes
+    const pendientes = await pool.query("SELECT COUNT(*) as total FROM incidencia WHERE estado = 'Pendiente'")
+
+    // Incidencias resueltas
+    const resueltas = await pool.query("SELECT COUNT(*) as total FROM incidencia WHERE estado = 'Resuelta'")
+
+    // Incidencias graves
+    const graves = await pool.query("SELECT COUNT(*) as total FROM incidencia WHERE gravedad = 'Grave'")
 
     // Incidencias por gravedad
     const incidenciasPorGravedad = await pool.query(`
@@ -271,30 +262,6 @@ export const obtenerEstadisticasAdmin = async () => {
       GROUP BY gravedad
     `)
 
-    // Top 5 alumnos con más incidencias
-    const alumnosConMasIncidencias = await pool.query(`
-      SELECT 
-        a.id_alumno,
-        a.nombre || ' ' || a.primerApellido || COALESCE(' ' || a.segundoApellido, '') AS nombre_completo,
-        COUNT(ai.id_incidencia) AS total_incidencias
-      FROM alumno a
-      INNER JOIN alumno_incidencia ai ON a.id_alumno = ai.id_alumno
-      GROUP BY a.id_alumno, nombre_completo
-      ORDER BY total_incidencias DESC
-      LIMIT 5
-    `)
-
-    const tendenciasPorMes = await pool.query(`
-      SELECT 
-        TO_CHAR(fecha, 'Mon') AS mes,
-        COUNT(*) AS total,
-        SUM(CASE WHEN gravedad = 'Grave' THEN 1 ELSE 0 END) AS criticas
-      FROM incidencia
-      WHERE fecha >= NOW() - INTERVAL '6 months'
-      GROUP BY TO_CHAR(fecha, 'Mon'), EXTRACT(MONTH FROM fecha)
-      ORDER BY EXTRACT(MONTH FROM fecha)
-    `)
-
     // Incidencias por estado
     const incidenciasPorEstado = await pool.query(`
       SELECT 
@@ -302,6 +269,20 @@ export const obtenerEstadisticasAdmin = async () => {
         COUNT(*) as cantidad
       FROM incidencia
       GROUP BY estado
+    `)
+
+    // Incidencias por grupo
+    const incidenciasPorGrupo = await pool.query(`
+      SELECT 
+        g.nombre AS grupo,
+        COUNT(ai.id_incidencia) AS total_incidencias
+      FROM grupo g
+      LEFT JOIN alumno a ON g.id_grupo = a.id_grupo
+      LEFT JOIN alumno_incidencia ai ON a.id_alumno = ai.id_alumno
+      GROUP BY g.nombre
+      HAVING COUNT(ai.id_incidencia) > 0
+      ORDER BY total_incidencias DESC
+      LIMIT 10
     `)
 
     const actividadUsuarios = await pool.query(`
@@ -315,21 +296,11 @@ export const obtenerEstadisticasAdmin = async () => {
       LIMIT 10
     `)
 
-    // Incidencias por grupo
-    const incidenciasPorGrupo = await pool.query(`
-      SELECT 
-        g.nombre AS grupo,
-        COUNT(ai.id_incidencia) AS total_incidencias
-      FROM grupo g
-      LEFT JOIN alumno a ON g.id_grupo = a.id_grupo
-      LEFT JOIN alumno_incidencia ai ON a.id_alumno = ai.id_alumno
-      GROUP BY g.nombre
-      ORDER BY total_incidencias DESC
-      LIMIT 10
-    `)
-
-    return {
+    const resultado = {
       totalIncidencias: Number.parseInt(totalIncidencias.rows[0].total) || 0,
+      pendientes: Number.parseInt(pendientes.rows[0].total) || 0,
+      resueltas: Number.parseInt(resueltas.rows[0].total) || 0,
+      graves: Number.parseInt(graves.rows[0].total) || 0,
       incidenciasPorTipo: incidenciasPorTipo.rows || [],
       incidenciasPorGravedad: incidenciasPorGravedad.rows || [],
       alumnosConMasIncidencias: alumnosConMasIncidencias.rows || [],
@@ -338,10 +309,17 @@ export const obtenerEstadisticasAdmin = async () => {
       actividadUsuarios: actividadUsuarios.rows || [],
       incidenciasPorGrupo: incidenciasPorGrupo.rows || [],
     }
+
+    console.log("[v0] ✅ Estadísticas obtenidas:", JSON.stringify(resultado, null, 2))
+
+    return resultado
   } catch (err) {
-    console.error("Error al obtener estadísticas admin:", err)
+    console.error("[v0] ❌ Error al obtener estadísticas admin:", err)
     return {
       totalIncidencias: 0,
+      pendientes: 0,
+      resueltas: 0,
+      graves: 0,
       incidenciasPorTipo: [],
       incidenciasPorGravedad: [],
       alumnosConMasIncidencias: [],
@@ -465,12 +443,14 @@ export const obtenerEstadisticasDocente = async (id_usuario) => {
       SELECT 
         a.id_alumno,
         a.nombre || ' ' || a.primerApellido || COALESCE(' ' || a.segundoApellido, '') AS nombre_completo,
+        g.nombre AS grupo,
         COUNT(ai.id_incidencia) AS total_incidencias
       FROM alumno a
       INNER JOIN alumno_incidencia ai ON a.id_alumno = ai.id_alumno
       INNER JOIN incidencia i ON ai.id_incidencia = i.id_incidencia
+      LEFT JOIN grupo g ON a.id_grupo = g.id_grupo
       WHERE i.id_usuario = $1
-      GROUP BY a.id_alumno, nombre_completo
+      GROUP BY a.id_alumno, nombre_completo, g.nombre
       ORDER BY total_incidencias DESC
       LIMIT 5
     `,
@@ -752,6 +732,7 @@ export const obtenerEstadisticasPorPeriodo = async () => {
   return result.rows
 }
 
+
 export const obtenerRankingGrupos = async () => {
   const query = `
     SELECT 
@@ -773,4 +754,15 @@ export const obtenerRankingGrupos = async () => {
 
   const result = await pool.query(query)
   return result.rows
+}
+
+export const aplicarAccionCorrectiva = async (id_incidencia, descripcion, fecha_aplicacion, id_usuario) => {
+  const query = `
+    INSERT INTO acc_correctiva (descripcion, fechaAplicacion, id_usuario, id_incidencia)
+    VALUES ($1, $2, $3, $4)
+    RETURNING *
+  `
+
+  const result = await pool.query(query, [descripcion, fecha_aplicacion, id_usuario, id_incidencia])
+  return result.rows[0]
 }

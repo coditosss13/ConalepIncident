@@ -14,6 +14,9 @@ import {
   obtenerReporte,
   obtenerEstadisticasPorPeriodo,
   obtenerRankingGrupos,
+  obtenerGruposDocente,
+  obtenerAlumnosPorGrupo,
+  obtenerAccionesCorrectivas,
 } from "../controllers/incidenciaController.js"
 import { verifyToken, permitRoles, registrarBitacora } from "../middleware/authMiddleware.js"
 
@@ -165,5 +168,14 @@ router.post(
 )
 
 router.get("/:id", verifyToken, obtenerIncidenciaPorId)
+
+// === RUTAS PARA GRUPOS Y ALUMNOS POR GRUPO ===
+
+router.get("/grupos-docente/:id_docente", verifyToken, permitRoles(2), obtenerGruposDocente)
+router.get("/alumnos-grupo/:id_grupo", verifyToken, permitRoles(1, 2, 3), obtenerAlumnosPorGrupo)
+
+// === RUTA PARA ACCIONES CORRECTIVAS ===
+
+router.get("/acciones-correctivas", verifyToken, permitRoles(1, 3), obtenerAccionesCorrectivas)
 
 export default router

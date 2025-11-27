@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { getToken } from "@/lib/api"
 import { getUserRole, ROLES } from "@/lib/permissions"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Shield } from "lucide-react"
@@ -16,7 +15,7 @@ export default function BitacoraPage() {
   const [filteredActividades, setFilteredActividades] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [tipoFiltro, setTipoFiltro] = useState("INFO") // Updated default value
+  const [tipoFiltro, setTipoFiltro] = useState("all") // Updated default value
 
   useEffect(() => {
     const token = getToken()
@@ -25,7 +24,6 @@ export default function BitacoraPage() {
       return
     }
 
-    // Verificar permisos
     const userStr = localStorage.getItem("user")
     if (userStr) {
       const user = JSON.parse(userStr)
@@ -39,15 +37,15 @@ export default function BitacoraPage() {
 
     const loadActividades = async () => {
       try {
-        // Cargar actividades desde el backend
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bitacora`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/incidencias/bitacora`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
 
         if (response.ok) {
-          const data = await response.json()
+          const result = await response.json()
+          const data = result.data || []
           setActividades(data)
           setFilteredActividades(data)
         }
@@ -68,30 +66,16 @@ export default function BitacoraPage() {
       filtered = filtered.filter(
         (act) =>
           act.accion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          act.usuario?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          act.detalle?.toLowerCase().includes(searchTerm.toLowerCase()),
+          act.usuario?.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
-    if (tipoFiltro) {
+    if (tipoFiltro !== "all") {
       filtered = filtered.filter((act) => act.tipo === tipoFiltro)
     }
 
     setFilteredActividades(filtered)
   }, [searchTerm, tipoFiltro, actividades])
-
-  const getTipoBadge = (tipo) => {
-    switch (tipo) {
-      case "ERROR":
-        return "bg-red-500 text-white"
-      case "WARNING":
-        return "bg-yellow-500 text-white"
-      case "SUCCESS":
-        return "bg-green-500 text-white"
-      default:
-        return "bg-blue-500 text-white"
-    }
-  }
 
   if (loading) {
     return (
@@ -118,7 +102,7 @@ export default function BitacoraPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Buscar por usuario, acción o detalle..."
+                placeholder="Buscar por usuario o acción..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -132,7 +116,7 @@ export default function BitacoraPage() {
                 <SelectValue placeholder="Filtrar por tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="INFO">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="INFO">Información</SelectItem>
                 <SelectItem value="SUCCESS">Éxito</SelectItem>
                 <SelectItem value="WARNING">Advertencia</SelectItem>
@@ -156,14 +140,9 @@ export default function BitacoraPage() {
                 <div key={index} className="border-l-4 border-[#0c6857] pl-4 py-3 bg-gray-50 rounded">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className={getTipoBadge(actividad.tipo)}>{actividad.tipo || "INFO"}</Badge>
-                        <span className="font-semibold text-sm">{actividad.accion}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 mb-1">{actividad.detalle}</p>
-                      <div className="flex gap-4 text-xs text-gray-500">
+                      <p className="font-semibold text-sm">{actividad.accion}</p>
+                      <div className="flex gap-4 text-xs text-gray-500 mt-1">
                         <span>Usuario: {actividad.usuario}</span>
-                        <span>IP: {actividad.ip || "N/A"}</span>
                       </div>
                     </div>
                     <span className="text-xs text-gray-500 whitespace-nowrap">

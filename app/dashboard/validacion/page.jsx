@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { CheckCircle, XCircle } from "lucide-react"
+import { getToken, validarIncidencia } from "@/lib/api"
 
 export default function ValidacionPage() {
   const [incidenciasPendientes, setIncidenciasPendientes] = useState([])
@@ -19,16 +20,16 @@ export default function ValidacionPage() {
 
   const fetchIncidenciasPendientes = async () => {
     try {
-      const token = localStorage.getItem("token")
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/incidencias/pendientes`, {
+      const token = getToken()
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/incidencias/pendientes`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setIncidenciasPendientes(data)
+        const result = await response.json()
+        setIncidenciasPendientes(result.data || [])
       }
     } catch (error) {
       console.error("Error al cargar incidencias pendientes:", error)
@@ -37,29 +38,20 @@ export default function ValidacionPage() {
     }
   }
 
-  const validarIncidencia = async (idIncidencia, aprobada) => {
+  const handleValidarIncidencia = async (idIncidencia, aprobada) => {
     try {
       setValidando(idIncidencia)
-      const token = localStorage.getItem("token")
+      const token = getToken()
+      const userObj = JSON.parse(localStorage.getItem("user"))
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/incidencias/${idIncidencia}/validar`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          aprobada,
-          observaciones,
-        }),
-      })
+      await validarIncidencia(idIncidencia, aprobada, observaciones, userObj.id_usuario, token)
 
-      if (response.ok) {
-        await fetchIncidenciasPendientes()
-        setObservaciones("")
-      }
+      await fetchIncidenciasPendientes()
+      setObservaciones("")
+      alert(`Incidencia ${aprobada ? "aprobada" : "rechazada"} exitosamente`)
     } catch (error) {
       console.error("Error al validar incidencia:", error)
+      alert("Error al validar incidencia")
     } finally {
       setValidando(null)
     }
@@ -139,7 +131,7 @@ export default function ValidacionPage() {
 
                 <div className="flex gap-3">
                   <Button
-                    onClick={() => validarIncidencia(incidencia.id_incidencia, true)}
+                    onClick={() => handleValidarIncidencia(incidencia.id_incidencia, true)}
                     disabled={validando === incidencia.id_incidencia}
                     className="flex-1 bg-green-600 hover:bg-green-700"
                   >
@@ -147,7 +139,7 @@ export default function ValidacionPage() {
                     Aprobar
                   </Button>
                   <Button
-                    onClick={() => validarIncidencia(incidencia.id_incidencia, false)}
+                    onClick={() => handleValidarIncidencia(incidencia.id_incidencia, false)}
                     disabled={validando === incidencia.id_incidencia}
                     variant="destructive"
                     className="flex-1"

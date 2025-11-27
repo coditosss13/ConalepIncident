@@ -104,11 +104,7 @@ export default function DashboardPrefecto() {
     )
   }
 
-  const tiposFrecuentesData =
-    stats.incidenciasPorTipo?.map((item) => ({
-      name: item.tipo,
-      value: Number.parseInt(item.cantidad),
-    })) || []
+  const tiposFrecuentesData = stats.incidenciasPorTipo || []
 
   const estadosData = [
     { name: "Pendientes", value: stats.totalPendientes || 0 },

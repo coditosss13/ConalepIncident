@@ -109,11 +109,7 @@ export default function DashboardDocente() {
     )
   }
 
-  const tiposComunesData =
-    stats.tiposComunes?.map((item) => ({
-      name: item.tipo,
-      value: Number.parseInt(item.cantidad),
-    })) || []
+  const tiposComunesData = stats.tiposComunes || []
 
   const COLORS = ["#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#14b8a6"]
 

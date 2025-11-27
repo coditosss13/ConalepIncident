@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getToken, createIncidencia, getUserData } from "@/lib/api"
+import {
+  getToken,
+  createIncidencia,
+  getUserData,
+  getTiposIncidencia,
+  getGruposDocente,
+  getAlumnosPorGrupo,
+} from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,7 +22,7 @@ import Link from "next/link"
 export default function NuevaIncidenciaPage() {
   const router = useRouter()
   const [formData, setFormData] = useState({
-    tipoIncidencia: "",
+    id_tipoIncidencia: "",
     gravedad: "",
     observaciones: "",
     estado: "Pendiente",
@@ -31,31 +38,49 @@ export default function NuevaIncidenciaPage() {
   const [userRole, setUserRole] = useState(null)
   const [grupos, setGrupos] = useState([])
   const [alumnos, setAlumnos] = useState([])
+  const [tiposIncidencia, setTiposIncidencia] = useState([])
   const [docenteId, setDocenteId] = useState(null)
 
   useEffect(() => {
-    const userData = getUserData()
-    const userObj = JSON.parse(localStorage.getItem("user"))
-    setUserRole(userObj?.id_rol)
-    setDocenteId(userObj?.id_docente)
+    const initData = async () => {
+      const userData = getUserData()
+      const userObj = JSON.parse(localStorage.getItem("user"))
+      setUserRole(userObj?.id_rol)
+      setDocenteId(userObj?.id_docente)
 
-    // Si es docente, cargar sus grupos asignados
-    if (userObj?.id_rol === 2 && userObj?.id_docente) {
-      loadGruposDocente(userObj.id_docente)
+      const token = getToken()
+
+      try {
+        const tipos = await getTiposIncidencia(token)
+        setTiposIncidencia(tipos)
+      } catch (err) {
+        console.error("Error al cargar tipos de incidencia:", err)
+      }
+
+      if (userObj?.id_rol === 2 && userObj?.id_docente) {
+        try {
+          const gruposData = await getGruposDocente(userObj.id_docente, token)
+          setGrupos(gruposData)
+        } catch (err) {
+          console.error("Error al cargar grupos:", err)
+          setError("Error al cargar grupos asignados")
+        }
+      }
     }
+
+    initData()
   }, [])
 
-  const loadGruposDocente = async (idDocente) => {
+  const handleGrupoChange = async (id_grupo) => {
+    setFormData({ ...formData, id_grupo, id_alumno: "" })
+
+    const token = getToken()
     try {
-      const token = getToken()
-      // Aquí deberías llamar a tu API para obtener los grupos del docente
-      // const response = await fetch(`${API_URL}/docentes/${idDocente}/grupos`, {
-      //   headers: { Authorization: `Bearer ${token}` }
-      // })
-      // const data = await response.json()
-      // setGrupos(data)
-    } catch (error) {
-      console.error("Error al cargar grupos:", error)
+      const alumnosData = await getAlumnosPorGrupo(id_grupo, token)
+      setAlumnos(alumnosData)
+    } catch (err) {
+      console.error("Error al cargar alumnos:", err)
+      setError("Error al cargar alumnos del grupo")
     }
   }
 
@@ -91,17 +116,20 @@ export default function NuevaIncidenciaPage() {
 
     try {
       const data = new FormData()
-      data.append("tipoIncidencia", formData.tipoIncidencia)
-      data.append("gravedad", formData.gravedad)
-      data.append("observaciones", formData.observaciones)
-      data.append("estado", formData.estado)
-      data.append("fecha", formData.fecha)
-      data.append("hora", formData.hora)
-      data.append("id_alumno", formData.id_alumno)
 
-      if (userRole === 2) {
-        data.append("id_grupo", formData.id_grupo)
-      }
+      data.append(
+        "data",
+        JSON.stringify({
+          id_tipoIncidencia: formData.id_tipoIncidencia,
+          gravedad: formData.gravedad,
+          observaciones: formData.observaciones,
+          estado: formData.estado,
+          fecha: formData.fecha,
+          hora: formData.hora,
+        }),
+      )
+
+      data.append("alumnos", JSON.stringify([formData.id_alumno]))
 
       evidencias.forEach((file) => {
         data.append("evidencias", file)
@@ -149,19 +177,19 @@ export default function NuevaIncidenciaPage() {
             <div className="space-y-2">
               <Label htmlFor="tipoIncidencia">Tipo de Incidencia *</Label>
               <Select
-                value={formData.tipoIncidencia}
-                onValueChange={(value) => handleChange("tipoIncidencia", value)}
+                value={formData.id_tipoIncidencia}
+                onValueChange={(value) => setFormData({ ...formData, id_tipoIncidencia: value })}
                 required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona el tipo de incidencia" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Disciplina">Disciplina</SelectItem>
-                  <SelectItem value="Uniforme">Uniforme</SelectItem>
-                  <SelectItem value="Violencia">Violencia</SelectItem>
-                  <SelectItem value="Académico">Académico</SelectItem>
-                  <SelectItem value="Asistencia">Asistencia</SelectItem>
+                  {tiposIncidencia.map((tipo) => (
+                    <SelectItem key={tipo.id_tipoincidencia} value={tipo.id_tipoincidencia.toString()}>
+                      {tipo.nombre} - {tipo.categoria}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -169,74 +197,61 @@ export default function NuevaIncidenciaPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="gravedad">Gravedad *</Label>
-                <Select value={formData.gravedad} onValueChange={(value) => handleChange("gravedad", value)} required>
+                <Select
+                  value={formData.gravedad}
+                  onValueChange={(value) => setFormData({ ...formData, gravedad: value })}
+                  required
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona gravedad" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Baja">Baja</SelectItem>
-                    <SelectItem value="Media">Media</SelectItem>
-                    <SelectItem value="Alta">Alta</SelectItem>
+                    <SelectItem value="Leve">Leve</SelectItem>
+                    <SelectItem value="Moderada">Moderada</SelectItem>
+                    <SelectItem value="Grave">Grave</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="id_alumno">{userRole === 2 ? "Alumno del Grupo *" : "ID del Alumno *"}</Label>
-                {userRole === 2 ? (
-                  <Select
-                    value={formData.id_alumno}
-                    onValueChange={(value) => handleChange("id_alumno", value)}
-                    required
-                  >
+              {userRole === 2 && (
+                <div className="space-y-2">
+                  <Label htmlFor="grupo">Grupo Asignado *</Label>
+                  <Select value={formData.id_grupo} onValueChange={handleGrupoChange} required>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un alumno" />
+                      <SelectValue placeholder="Selecciona tu grupo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {alumnos.map((alumno) => (
-                        <SelectItem key={alumno.id_alumno} value={alumno.id_alumno}>
-                          {alumno.nombre} {alumno.primerapellido} - {alumno.matricula}
+                      {grupos.map((grupo) => (
+                        <SelectItem key={grupo.id_grupo} value={grupo.id_grupo.toString()}>
+                          {grupo.nombre} - {grupo.grado} {grupo.periodo}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                ) : (
-                  <Input
-                    id="id_alumno"
-                    type="number"
-                    placeholder="Ingrese el ID del alumno"
-                    value={formData.id_alumno}
-                    onChange={(e) => handleChange("id_alumno", e.target.value)}
-                    required
-                  />
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {userRole === 2 && (
-              <div className="space-y-2">
-                <Label htmlFor="grupo">Grupo Asignado *</Label>
-                <Select
-                  value={formData.id_grupo}
-                  onValueChange={(value) => {
-                    handleChange("id_grupo", value)
-                    // Cargar alumnos del grupo seleccionado
-                  }}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tu grupo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {grupos.map((grupo) => (
-                      <SelectItem key={grupo.id_grupo} value={grupo.id_grupo}>
-                        {grupo.nombre} - {grupo.grado} {grupo.periodo}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="id_alumno">Alumno *</Label>
+              <Select
+                value={formData.id_alumno}
+                onValueChange={(value) => setFormData({ ...formData, id_alumno: value })}
+                required
+                disabled={userRole === 2 && !formData.id_grupo}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={userRole === 2 ? "Primero selecciona un grupo" : "Selecciona un alumno"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {alumnos.map((alumno) => (
+                    <SelectItem key={alumno.id_alumno} value={alumno.id_alumno.toString()}>
+                      {alumno.nombre} {alumno.primerapellido} {alumno.segundoapellido} - {alumno.matricula}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -245,7 +260,7 @@ export default function NuevaIncidenciaPage() {
                   id="fecha"
                   type="date"
                   value={formData.fecha}
-                  onChange={(e) => handleChange("fecha", e.target.value)}
+                  onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
                   required
                 />
               </div>
@@ -256,7 +271,7 @@ export default function NuevaIncidenciaPage() {
                   id="hora"
                   type="time"
                   value={formData.hora}
-                  onChange={(e) => handleChange("hora", e.target.value)}
+                  onChange={(e) => setFormData({ ...formData, hora: e.target.value })}
                   required
                 />
               </div>
@@ -268,7 +283,7 @@ export default function NuevaIncidenciaPage() {
                 id="observaciones"
                 placeholder="Describa detalladamente la incidencia ocurrida..."
                 value={formData.observaciones}
-                onChange={(e) => handleChange("observaciones", e.target.value)}
+                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
                 rows={5}
                 required
               />
