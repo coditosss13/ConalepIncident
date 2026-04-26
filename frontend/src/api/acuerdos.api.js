@@ -1,8 +1,12 @@
 import axios from './axios'
 
 const acuerdosApi = {
-  generar: async (incidenciaId, alumnoId) => {
-    const response = await axios.post('/acuerdos/generar', { incidencia_id: incidenciaId, alumno_id: alumnoId })
+  generar: async (incidenciaId, alumnoId, payload = {}) => {
+    const response = await axios.post('/acuerdos/generar', {
+      incidencia_id: incidenciaId,
+      alumno_id: alumnoId,
+      ...payload
+    })
     return response.data
   },
 

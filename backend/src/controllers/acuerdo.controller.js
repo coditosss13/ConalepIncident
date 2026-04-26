@@ -5,6 +5,14 @@ const auditService = require('../services/audit.service');
 const path = require('path');
 const fs = require('fs');
 
+const isValidPhoneFlexible = (phone) => {
+  if (!phone || typeof phone !== 'string') return false;
+  const cleaned = phone.trim();
+  const validChars = /^[\d+\-().\s/]+$/.test(cleaned);
+  const digits = (cleaned.match(/\d/g) || []).length;
+  return validChars && digits >= 7 && digits <= 16;
+};
+
 class AcuerdoController {
 
   /**
@@ -12,10 +20,16 @@ class AcuerdoController {
    * Generar PDF de acuerdo para un alumno en una incidencia
    */
   generar = asyncHandler(async (req, res) => {
-    const { incidencia_id, alumno_id } = req.body;
+    const { incidencia_id, alumno_id, nombre_tutor, telefono_tutor, parentesco } = req.body;
 
     if (!incidencia_id || !alumno_id) {
       throw new AppError('incidencia_id y alumno_id son requeridos', 400);
+    }
+    if (!nombre_tutor || !telefono_tutor) {
+      throw new AppError('nombre_tutor y telefono_tutor son requeridos', 400);
+    }
+    if (!isValidPhoneFlexible(telefono_tutor)) {
+      throw new AppError('telefono_tutor no tiene un formato válido', 400);
     }
 
     // Verificar que la incidencia y alumno existen
@@ -32,15 +46,46 @@ class AcuerdoController {
       throw new AppError('Alumno no encontrado', 404);
     }
 
+    const filtrosSeguimiento = {
+      incidencia_id: incidencia_id,
+      descripcion: { [require('sequelize').Op.ne]: 'Incidencia registrada en el sistema' }
+    };
+
+    const ultimoSeguimiento = await Seguimiento.findOne({
+      where: {
+        ...filtrosSeguimiento,
+        alumno_id: parseInt(alumno_id)
+      },
+      order: [['fecha', 'DESC']]
+    }) || await Seguimiento.findOne({
+      where: {
+        ...filtrosSeguimiento,
+        alumno_id: null
+      },
+      order: [['fecha', 'DESC']]
+    });
+
+    if (!ultimoSeguimiento) {
+      throw new AppError('Primero debes guardar un seguimiento para poder generar el acuerdo', 409);
+    }
+
     // Generar el PDF
-    const resultado = await pdfService.generarAcuerdo(incidencia_id, alumno_id);
+    const resultado = await pdfService.generarAcuerdo(incidencia_id, alumno_id, {
+      seguimientoSesion: ultimoSeguimiento.descripcion,
+      tutorNombre: nombre_tutor,
+      tutorTelefono: telefono_tutor,
+      parentesco: parentesco || ''
+    });
 
     // Guardar registro en la base de datos
     const acuerdo = await Acuerdo.create({
       incidencia_id: parseInt(incidencia_id),
       alumno_id: parseInt(alumno_id),
       ruta_pdf: resultado.filePath,
-      contenido: `Acuerdo generado para la incidencia ${incidencia_id} - Alumno: ${alumno.nombre}`,
+      contenido: `Acuerdo generado para la incidencia ${incidencia_id} - Alumno: ${alumno.nombre}. Acuerdos: ${ultimoSeguimiento.descripcion}`,
+      nombre_tutor: nombre_tutor.trim(),
+      telefono_tutor: telefono_tutor.trim(),
+      parentesco: (parentesco || '').trim(),
       firmado: false,
       fecha: new Date()
     });

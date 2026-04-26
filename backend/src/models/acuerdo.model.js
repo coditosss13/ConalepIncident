@@ -32,6 +32,18 @@ const Acuerdo = sequelize.define('Acuerdo', {
     allowNull: true,
     comment: 'Contenido textual del acuerdo para referencia rápida'
   },
+  nombre_tutor: {
+    type: DataTypes.STRING(150),
+    allowNull: true
+  },
+  telefono_tutor: {
+    type: DataTypes.STRING(30),
+    allowNull: true
+  },
+  parentesco: {
+    type: DataTypes.STRING(80),
+    allowNull: true
+  },
   firmado: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

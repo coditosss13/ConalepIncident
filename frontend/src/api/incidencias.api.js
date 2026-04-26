@@ -39,6 +39,11 @@ const incidenciasApi = {
   getStats: async () => {
     const response = await axios.get('/incidencias/stats')
     return response.data
+  },
+
+  getCatalogoRazones: async () => {
+    const response = await axios.get('/incidencias/catalogo-razones')
+    return response.data
   }
 }
 

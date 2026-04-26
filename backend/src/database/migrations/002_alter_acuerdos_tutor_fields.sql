@@ -1,0 +1,3 @@
+ALTER TABLE acuerdos ADD COLUMN IF NOT EXISTS nombre_tutor VARCHAR(150) NULL AFTER contenido;
+ALTER TABLE acuerdos ADD COLUMN IF NOT EXISTS telefono_tutor VARCHAR(30) NULL AFTER nombre_tutor;
+ALTER TABLE acuerdos ADD COLUMN IF NOT EXISTS parentesco VARCHAR(80) NULL AFTER telefono_tutor;

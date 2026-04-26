@@ -22,6 +22,18 @@ const Alumno = sequelize.define('Alumno', {
       notEmpty: { msg: 'La matrícula es requerida' }
     }
   },
+  nombre_tutor: {
+    type: DataTypes.STRING(150),
+    allowNull: true
+  },
+  telefono_tutor: {
+    type: DataTypes.STRING(30),
+    allowNull: true
+  },
+  parentesco_tutor: {
+    type: DataTypes.STRING(80),
+    allowNull: true
+  },
   grupo_actual_id: {
     type: DataTypes.INTEGER,
     allowNull: true,

@@ -33,7 +33,7 @@ class AlumnoController {
   });
 
   create = asyncHandler(async (req, res) => {
-    const { nombre, matricula, grupo_actual_id } = req.body;
+    const { nombre, matricula, grupo_actual_id, nombre_tutor, telefono_tutor, parentesco_tutor } = req.body;
 
     if (!nombre || !matricula) {
       throw new AppError('Nombre y matrícula son requeridos', 400);
@@ -42,7 +42,10 @@ class AlumnoController {
     const alumno = await alumnoService.create({
       nombre,
       matricula,
-      grupo_actual_id
+      grupo_actual_id,
+      nombre_tutor,
+      telefono_tutor,
+      parentesco_tutor
     });
 
     res.status(201).json({
@@ -54,13 +57,16 @@ class AlumnoController {
 
   update = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { nombre, matricula, grupo_actual_id, activo } = req.body;
+    const { nombre, matricula, grupo_actual_id, activo, nombre_tutor, telefono_tutor, parentesco_tutor } = req.body;
 
     const alumno = await alumnoService.update(id, {
       nombre,
       matricula,
       grupo_actual_id,
-      activo
+      activo,
+      nombre_tutor,
+      telefono_tutor,
+      parentesco_tutor
     });
 
     res.json({

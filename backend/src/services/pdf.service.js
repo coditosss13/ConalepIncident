@@ -9,7 +9,7 @@ class PDFService {
    * Generar PDF de acuerdo para una incidencia
    */
   async generarAcuerdo(incidenciaId, alumnoId, options = {}) {
-    const { seguimientoSesion = null, firmado = false } = options;
+    const { firmado = false } = options;
     // Obtener datos de la incidencia y alumno
     const incidencia = await Incidencia.findByPk(incidenciaId, {
       include: [
@@ -47,141 +47,27 @@ class PDFService {
     // Crear el PDF
     const doc = new PdfKit({
       size: 'LETTER',
-      margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      margins: { top: 30, bottom: 30, left: 30, right: 30 }
     });
 
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
-    // === HEADER ===
-    doc
-      .fontSize(18)
-      .font('Helvetica-Bold')
-      .text('ACUERDO DE COMPROMISO', { align: 'center' })
-      .moveDown(0.5)
-      .fontSize(12)
-      .text('Sistema de Gestión de Incidencias Escolares', { align: 'center' })
-      .moveDown(1);
-
-    // === DATOS DE LA INCIDENCIA ===
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('DATOS DE LA INCIDENCIA')
-      .moveDown(0.5);
-
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(`Folio: ${incidencia.id}`)
-      .text(`Fecha: ${new Date(incidencia.fecha).toLocaleDateString('es-MX')}`)
-      .text(`Título: ${incidencia.titulo}`)
-      .text(`Severidad: ${incidencia.severidad.nombre}`)
-      .text(`Grupo: ${incidencia.grupo.nombre}`)
-      .moveDown(0.5)
-      .text('Descripción:')
-      .text(incidencia.descripcion, { width: 500, align: 'justify' })
-      .moveDown(1);
-
-    // === DATOS DEL ALUMNO ===
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('DATOS DEL ALUMNO')
-      .moveDown(0.5);
-
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(`Nombre: ${alumno.nombre}`)
-      .text(`Matrícula: ${alumno.matricula}`)
-      .text(`Grupo al momento de la incidencia: ${alumno.IncidenciaAlumnos.grupo_snapshot || incidencia.grupo.nombre}`)
-      .moveDown(1);
-
-    // === DATOS DEL PROFESOR ===
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('DATOS DEL PROFESOR QUE REPORTA')
-      .moveDown(0.5);
-
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(`Nombre: ${incidencia.profesor.nombre}`)
-      .text(`Email: ${incidencia.profesor.email}`)
-      .moveDown(1);
-
-    // === ACUERDOS ===
-    doc
-      .fontSize(14)
-      .font('Helvetica-Bold')
-      .text('ACUERDOS Y COMPROMISOS')
-      .moveDown(0.5);
-
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text('Por medio del presente documento, se establecen los siguientes acuerdos:')
-      .moveDown(0.5)
-      .text('1. El alumno se compromete a mejorar su conducta y desempeño académico.')
-      .text('2. El profesor realizará seguimiento del caso durante el presente ciclo escolar.')
-      .text('3. Los padres de familia o tutores serán informados de cualquier reincidencia.')
-      .text('4. En caso de reincidencia, se escalará la incidencia a nivel prefectura.')
-      .moveDown(1);
-
-    if (seguimientoSesion) {
-      doc
-        .fontSize(14)
-        .font('Helvetica-Bold')
-        .text('SEGUIMIENTO DE LA SESIÓN')
-        .moveDown(0.5)
-        .fontSize(11)
-        .font('Helvetica')
-        .text(seguimientoSesion, { width: 500, align: 'justify' })
-        .moveDown(1);
+    const templatePath = path.resolve(__dirname, '../assets/formato_acuerdo_base.png');
+    if (!fs.existsSync(templatePath)) {
+      throw new Error('No se encontró la plantilla oficial del acuerdo');
     }
+    doc.image(templatePath, 0, 0, { width: 612, height: 792 });
 
-    // === FIRMAS ===
-    doc.moveDown(2);
-
-    const firmaY = 650;
-
-    // Línea de firma del alumno
-    doc
-      .moveTo(50, firmaY)
-      .lineTo(250, firmaY)
-      .stroke()
-      .fontSize(10)
-      .font('Helvetica')
-      .text('Firma del Alumno', { align: 'center' })
-      .text(`(${alumno.nombre})`, { align: 'center' });
-
-    // Línea de firma del profesor
-    doc
-      .moveTo(350, firmaY)
-      .lineTo(550, firmaY)
-      .stroke()
-      .fontSize(10)
-      .font('Helvetica')
-      .text('Firma del Profesor', { align: 'center' })
-      .text(`(${incidencia.profesor.nombre})`, { align: 'center' });
-
-    // === FOOTER ===
-    doc
-      .fontSize(9)
-      .font('Helvetica')
-      .text(
-        `Documento generado el ${new Date().toLocaleDateString('es-MX')} a las ${new Date().toLocaleTimeString('es-MX')}`,
-        { align: 'center' }
-      )
-      .moveDown(0.5)
-      .text(
-        firmado
-          ? 'Documento firmado y validado por prefectura.'
-          : 'Este documento es válido como constancia oficial de la incidencia escolar.',
-        { align: 'center' }
-      );
+    const fechaDoc = new Date();
+    doc.fontSize(7).font('Helvetica').text(
+      firmado
+        ? `Documento firmado. Generado automáticamente: ${fechaDoc.toLocaleString('es-MX')}`
+        : `Documento generado automáticamente: ${fechaDoc.toLocaleString('es-MX')}`,
+      390,
+      741,
+      { width: 180, align: 'right' }
+    );
 
     // Finalizar el documento
     doc.end();

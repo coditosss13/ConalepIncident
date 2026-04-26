@@ -27,6 +27,7 @@ function Incidencias() {
   const [search, setSearch] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroSeveridad, setFiltroSeveridad] = useState('')
+  const [filtroGravedad, setFiltroGravedad] = useState('')
   const [mostrarCerradas, setMostrarCerradas] = useState(false)
 
   // Modales
@@ -45,7 +46,11 @@ function Incidencias() {
         limit: 10,
         search,
         estado: filtroEstado || (mostrarCerradas ? 'cerrada' : undefined),
-        severidad_id: filtroSeveridad || undefined
+        severidad_id: filtroGravedad === 'grave'
+          ? 3
+          : filtroGravedad === 'no_grave'
+            ? 1
+            : (filtroSeveridad || undefined)
       })
       setIncidencias(response.data)
       setTotalPages(response.pagination.totalPages)
@@ -59,7 +64,7 @@ function Incidencias() {
 
   useEffect(() => {
     loadIncidencias()
-  }, [page, filtroEstado, filtroSeveridad, mostrarCerradas])
+  }, [page, filtroEstado, filtroSeveridad, filtroGravedad, mostrarCerradas])
 
   // Handlers
   const handleSearch = (e) => {
@@ -172,6 +177,18 @@ function Incidencias() {
         </Button>
       </div>
 
+      <div className="flex gap-2">
+        <Button variant={filtroGravedad === '' ? 'primary' : 'secondary'} onClick={() => { setFiltroGravedad(''); setPage(1) }}>
+          Todas
+        </Button>
+        <Button variant={filtroGravedad === 'grave' ? 'primary' : 'secondary'} onClick={() => { setFiltroGravedad('grave'); setPage(1) }}>
+          Graves
+        </Button>
+        <Button variant={filtroGravedad === 'no_grave' ? 'primary' : 'secondary'} onClick={() => { setFiltroGravedad('no_grave'); setPage(1) }}>
+          No graves
+        </Button>
+      </div>
+
       {/* Alerts */}
       {error && (
         <Alert type="error" message={error} onClose={() => setError('')} />
@@ -246,6 +263,7 @@ function Incidencias() {
               setSearch('')
               setFiltroEstado('')
               setFiltroSeveridad('')
+              setFiltroGravedad('')
               setPage(1)
               loadIncidencias()
             }}

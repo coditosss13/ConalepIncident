@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/', incidenciaController.getAll);
 router.post('/', incidenciaController.create);
 router.get('/stats', incidenciaController.getStats);
+router.get('/catalogo-razones', incidenciaController.getCatalogoRazones);
 
 // Rutas específicas por ID
 router.get('/:id', incidenciaController.getById);

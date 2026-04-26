@@ -1,8 +1,16 @@
 const incidenciaService = require('../services/incidencia.service');
 const { asyncHandler, AppError } = require('../middlewares/error.middleware');
 const auditService = require('../services/audit.service');
+const { getIncidenciaReasonsCatalog, resolveReason } = require('../utils/incidencia-reasons.util');
 
 class IncidenciaController {
+
+  getCatalogoRazones = asyncHandler(async (req, res) => {
+    res.json({
+      success: true,
+      data: getIncidenciaReasonsCatalog()
+    });
+  });
 
   /**
    * GET /api/incidencias
@@ -59,11 +67,12 @@ class IncidenciaController {
    * Crear nueva incidencia
    */
   create = asyncHandler(async (req, res) => {
-    const { titulo, descripcion, severidad_id, grupo_id, alumno_ids } = req.body;
+    const { titulo, descripcion, razon, grupo_id, alumno_ids } = req.body;
+    const reason = resolveReason(razon);
 
     // Validaciones básicas
-    if (!titulo || !descripcion || !severidad_id) {
-      throw new AppError('Todos los campos son requeridos: titulo, descripcion, severidad_id', 400);
+    if (!descripcion || !reason) {
+      throw new AppError('Los campos requeridos son: descripcion y razon valida', 400);
     }
 
     if (!alumno_ids || !Array.isArray(alumno_ids) || alumno_ids.length === 0) {
@@ -71,9 +80,9 @@ class IncidenciaController {
     }
 
     const incidencia = await incidenciaService.create({
-      titulo,
+      titulo: titulo || reason.label,
       descripcion,
-      severidad_id: parseInt(severidad_id),
+      severidad_id: reason.severidad_id,
       grupo_id: grupo_id ? parseInt(grupo_id) : null,
       alumno_ids: alumno_ids.map(id => parseInt(id))
     }, req.usuario.id);
@@ -91,7 +100,8 @@ class IncidenciaController {
    */
   update = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { titulo, descripcion, severidad_id, grupo_id, estado } = req.body;
+    const { titulo, descripcion, severidad_id, grupo_id, estado, razon } = req.body;
+    const reason = razon ? resolveReason(razon) : null;
 
     // Verificar que la incidencia existe y tiene permisos
     const existingIncidencia = await incidenciaService.getById(id);
@@ -105,10 +115,14 @@ class IncidenciaController {
       throw new AppError('Solo prefectos y administradores pueden cambiar el estado', 403);
     }
 
+    if (razon && !reason) {
+      throw new AppError('La razon de incidencia no es valida', 400);
+    }
+
     const incidencia = await incidenciaService.update(id, {
-      titulo,
+      titulo: titulo || reason?.label,
       descripcion,
-      severidad_id: severidad_id ? parseInt(severidad_id) : undefined,
+      severidad_id: reason ? reason.severidad_id : (severidad_id ? parseInt(severidad_id) : undefined),
       grupo_id: grupo_id ? parseInt(grupo_id) : undefined,
       estado
     });

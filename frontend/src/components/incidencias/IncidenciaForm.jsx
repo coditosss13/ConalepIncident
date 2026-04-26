@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import gruposApi from '../../api/grupos.api'
 import alumnosApi from '../../api/alumnos.api'
+import incidenciasApi from '../../api/incidencias.api'
 import Input from '../common/Input'
 import Select from '../common/Select'
 import Button from '../common/Button'
@@ -10,16 +11,17 @@ import Alert from '../common/Alert'
 function IncidenciaForm({ incidencia, onSubmit, onCancel, loading }) {
   const [grupos, setGrupos] = useState([])
   const [alumnos, setAlumnos] = useState([])
+  const [razones, setRazones] = useState([])
   const [alumnosSeleccionados, setAlumnosSeleccionados] = useState([])
   const [error, setError] = useState('')
   const [archivos, setArchivos] = useState([])
   const [alumnoSearch, setAlumnoSearch] = useState('')
+  const [razonSeleccionada, setRazonSeleccionada] = useState(incidencia?.titulo || '')
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: incidencia || {
-      titulo: '',
       descripcion: '',
-      severidad_id: '',
+      razon: '',
       grupo_id: ''
     }
   })
@@ -33,10 +35,17 @@ function IncidenciaForm({ incidencia, onSubmit, onCancel, loading }) {
 
         const alumnosRes = await alumnosApi.getAll({ activo: true })
         setAlumnos(alumnosRes.data)
+        const razonesRes = await incidenciasApi.getCatalogoRazones()
+        setRazones(razonesRes.data || [])
 
         // Si es edición, cargar datos existentes
         if (incidencia) {
           setAlumnosSeleccionados(incidencia.alumnos?.map(a => a.id) || [])
+          const razonExistente = (razonesRes.data || []).find((r) => r.label === incidencia.titulo)
+          if (razonExistente) {
+            setValue('razon', razonExistente.key)
+            setRazonSeleccionada(razonExistente.key)
+          }
         }
       } catch (err) {
         console.error('Error al cargar datos:', err)
@@ -80,37 +89,57 @@ function IncidenciaForm({ incidencia, onSubmit, onCancel, loading }) {
     }
 
     setError('')
+    const razonObj = razones.find((r) => r.key === data.razon)
+    if (!razonObj) {
+      setError('Selecciona una razon de incidencia valida')
+      return
+    }
     await onSubmit({
       ...data,
-      severidad_id: parseInt(data.severidad_id),
+      razon: razonObj.key,
+      titulo: razonObj.label,
+      severidad_id: razonObj.severidad_id,
       grupo_id: data.grupo_id ? parseInt(data.grupo_id) : null,
       alumno_ids: alumnosSeleccionados,
       archivos
     })
   }
 
-  const severidades = [
-    { id: 1, nombre: 'Leve', descripcion: 'Incidencia menor' },
-    { id: 2, nombre: 'Moderada', descripcion: 'Incidencia media' },
-    { id: 3, nombre: 'Grave', descripcion: 'Incidencia grave' }
-  ]
-
   const grupoRegister = register('grupo_id', { valueAsNumber: true })
+  const razonRegister = register('razon', {
+    required: 'La razon de la incidencia es requerida'
+  })
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
       {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
-      {/* Título */}
-      <Input
-        label="Título"
-        placeholder="Describa brevemente la incidencia"
-        error={errors.titulo?.message}
-        {...register('titulo', {
-          required: 'El título es requerido',
-          minLength: { value: 5, message: 'Mínimo 5 caracteres' }
-        })}
+      {/* Razon */}
+      <Select
+        label="Razon de la incidencia"
+        options={[
+          { value: '', label: 'Seleccione una razon...' },
+          ...razones.map((r) => ({
+            value: r.key,
+            label: `${r.label} (${r.gravedad === 'grave' ? 'Grave' : 'No grave'})`
+          }))
+        ]}
+        error={errors.razon?.message}
+        {...razonRegister}
+        onChange={(e) => {
+          razonRegister.onChange(e)
+          setRazonSeleccionada(e.target.value)
+        }}
       />
+
+      {razonSeleccionada && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-sm text-blue-800">
+          Gravedad asignada automaticamente:{' '}
+          <strong>
+            {razones.find((r) => r.key === razonSeleccionada)?.gravedad === 'grave' ? 'Grave' : 'No grave'}
+          </strong>
+        </div>
+      )}
 
       {/* Descripción */}
       <div>
@@ -126,20 +155,6 @@ function IncidenciaForm({ incidencia, onSubmit, onCancel, loading }) {
           <span className="text-red-500 text-sm">{errors.descripcion.message}</span>
         )}
       </div>
-
-      {/* Severidad */}
-      <Select
-        label="Nivel de Severidad"
-        options={[
-          { value: '', label: 'Seleccione...' },
-          ...severidades.map(s => ({ value: s.id, label: s.nombre }))
-        ]}
-        error={errors.severidad_id?.message}
-        {...register('severidad_id', {
-          required: 'La severidad es requerida',
-          valueAsNumber: true
-        })}
-      />
 
       {/* Grupo */}
       <Select

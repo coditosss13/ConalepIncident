@@ -35,6 +35,9 @@ function Alumnos() {
   const [formData, setFormData] = useState({
     nombre: '',
     matricula: '',
+    nombre_tutor: '',
+    telefono_tutor: '',
+    parentesco_tutor: '',
     grupo_actual_id: ''
   })
 
@@ -86,7 +89,14 @@ function Alumnos() {
 
   const handleCreate = () => {
     setSelectedAlumno(null)
-    setFormData({ nombre: '', matricula: '', grupo_actual_id: '' })
+    setFormData({
+      nombre: '',
+      matricula: '',
+      nombre_tutor: '',
+      telefono_tutor: '',
+      parentesco_tutor: '',
+      grupo_actual_id: ''
+    })
     setModalOpen(true)
   }
 
@@ -95,6 +105,9 @@ function Alumnos() {
     setFormData({
       nombre: alumno.nombre,
       matricula: alumno.matricula,
+      nombre_tutor: alumno.nombre_tutor || '',
+      telefono_tutor: alumno.telefono_tutor || '',
+      parentesco_tutor: alumno.parentesco_tutor || '',
       grupo_actual_id: alumno.grupo_actual_id?.toString() || ''
     })
     setModalOpen(true)
@@ -381,6 +394,30 @@ function Alumnos() {
             required
             value={formData.matricula}
             onChange={(e) => setFormData({ ...formData, matricula: e.target.value })}
+          />
+
+          <Input
+            label="Nombre del tutor"
+            name="nombre_tutor"
+            placeholder="Nombre del padre, madre o tutor"
+            value={formData.nombre_tutor}
+            onChange={(e) => setFormData({ ...formData, nombre_tutor: e.target.value })}
+          />
+
+          <Input
+            label="Teléfono del tutor"
+            name="telefono_tutor"
+            placeholder="Ej. (664) 123-4567 o +1 619 555 1234"
+            value={formData.telefono_tutor}
+            onChange={(e) => setFormData({ ...formData, telefono_tutor: e.target.value })}
+          />
+
+          <Input
+            label="Parentesco del tutor"
+            name="parentesco_tutor"
+            placeholder="Ej. Padre, Madre, Tutor"
+            value={formData.parentesco_tutor}
+            onChange={(e) => setFormData({ ...formData, parentesco_tutor: e.target.value })}
           />
 
           <Select

@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import incidenciasApi from '../api/incidencias.api'
 import acuerdosApi from '../api/acuerdos.api'
+import alumnosApi from '../api/alumnos.api'
 import Alert from '../components/common/Alert'
 import Button from '../components/common/Button'
+
+const isValidPhoneFlexible = (phone) => {
+  const value = String(phone || '').trim()
+  const validChars = /^[\d+\-().\s/]+$/.test(value)
+  const digits = (value.match(/\d/g) || []).length
+  return validChars && digits >= 7 && digits <= 16
+}
 
 function Seguimientos() {
   const [incidencias, setIncidencias] = useState([])
@@ -14,6 +22,10 @@ function Seguimientos() {
   const [success, setSuccess] = useState('')
   const [acuerdos, setAcuerdos] = useState([])
   const [verCerradas, setVerCerradas] = useState(false)
+  const [nombreTutor, setNombreTutor] = useState('')
+  const [telefonoTutor, setTelefonoTutor] = useState('')
+  const [parentesco, setParentesco] = useState('')
+  const [seguimientoSeleccionadoId, setSeguimientoSeleccionadoId] = useState(null)
   const incidenciaCerrada = incidenciaActiva?.estado === 'cerrada'
 
   const cargarIncidencias = async () => {
@@ -27,7 +39,7 @@ function Seguimientos() {
       })
       setIncidencias(response.data || [])
       if (!incidenciaActiva && response.data?.length) {
-        await seleccionarIncidencia(response.data[0].id)
+        await seleccionarIncidencia(response.data[0].id, { resetAlumno: true })
       }
     } catch (err) {
       setError('No se pudieron cargar las incidencias para seguimiento')
@@ -36,12 +48,25 @@ function Seguimientos() {
     }
   }
 
-  const seleccionarIncidencia = async (id) => {
+  const seleccionarIncidencia = async (id, options = {}) => {
+    const { resetAlumno = true } = options
     setLoading(true)
     try {
       const detail = await incidenciasApi.getById(id)
       setIncidenciaActiva(detail.data)
-      setAlumnoSeleccionado('')
+      if (resetAlumno) {
+        setAlumnoSeleccionado('')
+      } else {
+        const alumnoExiste = detail.data?.alumnos?.some((al) => al.id === Number(alumnoSeleccionado))
+        if (!alumnoExiste) {
+          setAlumnoSeleccionado('')
+        }
+      }
+      // Resetear datos de tutor al cambiar de incidencia para evitar fugas de contexto.
+      setNombreTutor('')
+      setTelefonoTutor('')
+      setParentesco('')
+      setSeguimientoSeleccionadoId(null)
       const acuerdosRes = await acuerdosApi.getByIncidencia(id)
       setAcuerdos(acuerdosRes.data || [])
     } catch (err) {
@@ -64,7 +89,7 @@ function Seguimientos() {
       })
       setDescripcion('')
       setSuccess('Seguimiento guardado')
-      await seleccionarIncidencia(incidenciaActiva.id)
+      await seleccionarIncidencia(incidenciaActiva.id, { resetAlumno: false })
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo guardar seguimiento')
     }
@@ -79,7 +104,7 @@ function Seguimientos() {
     try {
       await incidenciasApi.changeStatus(incidenciaActiva.id, estado)
       setSuccess(`Incidencia actualizada a ${estado}`)
-      await seleccionarIncidencia(incidenciaActiva.id)
+      await seleccionarIncidencia(incidenciaActiva.id, { resetAlumno: false })
       await cargarIncidencias()
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo actualizar estado')
@@ -91,31 +116,28 @@ function Seguimientos() {
       setError('Selecciona un alumno para generar acuerdo')
       return
     }
+    if (!nombreTutor.trim() || !telefonoTutor.trim()) {
+      setError('Captura nombre y teléfono del tutor para generar el acuerdo')
+      return
+    }
+    if (!isValidPhoneFlexible(telefonoTutor)) {
+      setError('El teléfono del tutor no tiene un formato válido')
+      return
+    }
     if (incidenciaCerrada) {
       setError('La incidencia está cerrada y no admite cambios')
       return
     }
     try {
-      await acuerdosApi.generar(incidenciaActiva.id, Number(alumnoSeleccionado))
+      await acuerdosApi.generar(incidenciaActiva.id, Number(alumnoSeleccionado), {
+        nombre_tutor: nombreTutor.trim(),
+        telefono_tutor: telefonoTutor.trim(),
+        parentesco: parentesco.trim()
+      })
       setSuccess('Acuerdo generado')
-      await seleccionarIncidencia(incidenciaActiva.id)
+      await seleccionarIncidencia(incidenciaActiva.id, { resetAlumno: false })
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo generar acuerdo')
-    }
-  }
-
-  const firmarAcuerdo = async (acuerdoId) => {
-    try {
-      if (incidenciaCerrada) {
-        setError('La incidencia está cerrada y no admite cambios')
-        return
-      }
-      const seguimientoSesion = descripcion.trim() || seguimientosFiltrados[0]?.descripcion || ''
-      await acuerdosApi.firmar(acuerdoId, null, seguimientoSesion)
-      setSuccess('Acuerdo firmado')
-      await seleccionarIncidencia(incidenciaActiva.id)
-    } catch (err) {
-      setError(err.response?.data?.message || 'No se pudo firmar acuerdo')
     }
   }
 
@@ -148,6 +170,55 @@ function Seguimientos() {
   }, [incidenciaActiva, alumnoSeleccionado])
 
   useEffect(() => {
+    const autocompletarTutor = async () => {
+      if (!alumnoSeleccionado || !incidenciaActiva?.id) {
+        setNombreTutor('')
+        setTelefonoTutor('')
+        setParentesco('')
+        return
+      }
+
+      try {
+        const alumnoRes = await alumnosApi.getById(Number(alumnoSeleccionado))
+        const alumno = alumnoRes?.data || {}
+        const nombreDesdeAlumno = alumno.nombre_tutor || ''
+        const telefonoDesdeAlumno = alumno.telefono_tutor || ''
+        const parentescoDesdeAlumno = alumno.parentesco_tutor || ''
+
+        if (nombreDesdeAlumno || telefonoDesdeAlumno || parentescoDesdeAlumno) {
+          setNombreTutor(nombreDesdeAlumno)
+          setTelefonoTutor(telefonoDesdeAlumno)
+          setParentesco(parentescoDesdeAlumno)
+          return
+        }
+      } catch (errorAlumno) {
+        // Si falla consulta de alumno, intentar fallback con acuerdos.
+      }
+
+      const ultimoAcuerdoAlumno = [...acuerdos]
+        .filter(
+          (ac) =>
+            Number(ac.alumno_id) === Number(alumnoSeleccionado) &&
+            Number(ac.incidencia_id) === Number(incidenciaActiva.id)
+        )
+        .sort((a, b) => new Date(b.fecha || 0).getTime() - new Date(a.fecha || 0).getTime())[0]
+
+      if (!ultimoAcuerdoAlumno) {
+        setNombreTutor('')
+        setTelefonoTutor('')
+        setParentesco('')
+        return
+      }
+
+      setNombreTutor(ultimoAcuerdoAlumno.nombre_tutor || '')
+      setTelefonoTutor(ultimoAcuerdoAlumno.telefono_tutor || '')
+      setParentesco(ultimoAcuerdoAlumno.parentesco || '')
+    }
+
+    autocompletarTutor()
+  }, [alumnoSeleccionado, acuerdos, incidenciaActiva?.id])
+
+  useEffect(() => {
     cargarIncidencias()
   }, [verCerradas])
 
@@ -177,7 +248,7 @@ function Seguimientos() {
             {incidencias.map((inc) => (
               <button
                 key={inc.id}
-                onClick={() => seleccionarIncidencia(inc.id)}
+                onClick={() => seleccionarIncidencia(inc.id, { resetAlumno: true })}
                 className={`w-full text-left p-3 rounded border ${
                   incidenciaActiva?.id === inc.id ? 'border-primary bg-primary-50' : 'border-gray-200'
                 }`}
@@ -235,6 +306,40 @@ function Seguimientos() {
                 )}
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="label">Nombre del tutor</label>
+                  <input
+                    className="input"
+                    value={nombreTutor}
+                    onChange={(e) => setNombreTutor(e.target.value)}
+                    placeholder="Nombre del padre, madre o tutor"
+                    disabled={incidenciaCerrada}
+                  />
+                </div>
+                <div>
+                  <label className="label">Teléfono del tutor</label>
+                  <input
+                    type="tel"
+                    className="input"
+                    value={telefonoTutor}
+                    onChange={(e) => setTelefonoTutor(e.target.value)}
+                    placeholder="Ej. (664) 123-4567 o +1 619 555 1234"
+                    disabled={incidenciaCerrada}
+                  />
+                </div>
+                <div>
+                  <label className="label">Parentesco</label>
+                  <input
+                    className="input"
+                    value={parentesco}
+                    onChange={(e) => setParentesco(e.target.value)}
+                    placeholder="Ej. Madre / Padre / Tutor"
+                    disabled={incidenciaCerrada}
+                  />
+                </div>
+              </div>
+
               <div>
                 <h3 className="font-medium mb-2">Acuerdos</h3>
                 <div className="space-y-2">
@@ -244,9 +349,6 @@ function Seguimientos() {
                         Alumno: {acuerdo.alumno?.nombre || acuerdo.alumno_id} - {acuerdo.firmado ? 'Firmado' : 'Pendiente'}
                       </span>
                       <div className="flex gap-2">
-                        {!acuerdo.firmado && !incidenciaCerrada && (
-                          <Button size="small" variant="primary" onClick={() => firmarAcuerdo(acuerdo.id)}>Firmar</Button>
-                        )}
                         <Button size="small" variant="secondary" onClick={() => descargarAcuerdo(acuerdo.id, true)}>Abrir PDF</Button>
                         <Button size="small" variant="secondary" onClick={() => descargarAcuerdo(acuerdo.id, false)}>Descargar PDF</Button>
                       </div>
@@ -275,13 +377,26 @@ function Seguimientos() {
                 <h3 className="font-medium mb-2">Historial de seguimiento</h3>
                 <div className="space-y-2 max-h-[260px] overflow-auto">
                   {seguimientosFiltrados.map((seg) => (
-                    <div key={seg.id} className="border rounded p-2">
+                    <button
+                      key={seg.id}
+                      type="button"
+                      onClick={() => {
+                        setSeguimientoSeleccionadoId(seg.id)
+                        setDescripcion(seg.descripcion || '')
+                        if (seg.alumno_id) {
+                          setAlumnoSeleccionado(String(seg.alumno_id))
+                        }
+                      }}
+                      className={`border rounded p-2 w-full text-left ${
+                        seguimientoSeleccionadoId === seg.id ? 'border-primary bg-primary-50' : ''
+                      }`}
+                    >
                       <div className="text-xs text-gray-500">
                         {new Date(seg.fecha).toLocaleString('es-MX')} - {seg.usuario?.nombre || 'Sistema'}
                       </div>
                       {seg.alumno && <div className="text-xs text-primary">Alumno: {seg.alumno.nombre}</div>}
                       <div className="text-sm">{seg.descripcion}</div>
-                    </div>
+                    </button>
                   ))}
                   {seguimientosFiltrados.length === 0 && <p className="text-sm text-gray-500">Sin seguimientos.</p>}
                 </div>

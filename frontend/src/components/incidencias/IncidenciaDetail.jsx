@@ -376,14 +376,6 @@ function IncidenciaDetail({ incidencia, onClose, userRole }) {
                       >
                         Descargar PDF
                       </Button>
-                      <Button
-                        variant="primary"
-                        size="small"
-                        disabled={isClosed}
-                        onClick={() => acuerdosApi.firmar(acuerdos.find((item) => item.alumno_id === alumno.id).id, null, seguimiento)}
-                      >
-                        Marcar firmado
-                      </Button>
                     </>
                   )}
                 </div>

@@ -2,6 +2,13 @@ const { Alumno, Grupo } = require('../models');
 const { Op } = require('sequelize');
 
 class AlumnoService {
+  isValidPhoneFlexible(phone) {
+    if (!phone) return true;
+    const cleaned = String(phone).trim();
+    const validChars = /^[\d+\-().\s/]+$/.test(cleaned);
+    const digits = (cleaned.match(/\d/g) || []).length;
+    return validChars && digits >= 7 && digits <= 16;
+  }
 
   async getAll({ page = 1, limit = 10, search = '', grupo_id = null, activo = null }) {
     const offset = (page - 1) * limit;
@@ -62,7 +69,7 @@ class AlumnoService {
   }
 
   async create(data) {
-    const { nombre, matricula, grupo_actual_id } = data;
+    const { nombre, matricula, grupo_actual_id, nombre_tutor, telefono_tutor, parentesco_tutor } = data;
 
     // Verificar matrícula duplicada
     const existeMatricula = await Alumno.findOne({ where: { matricula } });
@@ -78,9 +85,16 @@ class AlumnoService {
       }
     }
 
+    if (!this.isValidPhoneFlexible(telefono_tutor)) {
+      throw new Error('El teléfono del tutor no tiene un formato válido');
+    }
+
     const alumno = await Alumno.create({
       nombre,
       matricula,
+      nombre_tutor: nombre_tutor || null,
+      telefono_tutor: telefono_tutor || null,
+      parentesco_tutor: parentesco_tutor || null,
       grupo_actual_id: grupo_actual_id || null,
       activo: true
     });
@@ -94,7 +108,7 @@ class AlumnoService {
       throw new Error('Alumno no encontrado');
     }
 
-    const { nombre, matricula, grupo_actual_id, activo } = data;
+    const { nombre, matricula, grupo_actual_id, activo, nombre_tutor, telefono_tutor, parentesco_tutor } = data;
 
     // Verificar matrícula duplicada
     if (matricula && matricula !== alumno.matricula) {
@@ -114,9 +128,16 @@ class AlumnoService {
       }
     }
 
+    if (telefono_tutor !== undefined && !this.isValidPhoneFlexible(telefono_tutor)) {
+      throw new Error('El teléfono del tutor no tiene un formato válido');
+    }
+
     await alumno.update({
       nombre: nombre || alumno.nombre,
       matricula: matricula || alumno.matricula,
+      nombre_tutor: nombre_tutor !== undefined ? (nombre_tutor || null) : alumno.nombre_tutor,
+      telefono_tutor: telefono_tutor !== undefined ? (telefono_tutor || null) : alumno.telefono_tutor,
+      parentesco_tutor: parentesco_tutor !== undefined ? (parentesco_tutor || null) : alumno.parentesco_tutor,
       grupo_actual_id: grupo_actual_id !== undefined ? grupo_actual_id : alumno.grupo_actual_id,
       activo: activo !== undefined ? activo : alumno.activo
     });
