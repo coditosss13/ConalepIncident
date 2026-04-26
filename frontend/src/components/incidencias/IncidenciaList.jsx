@@ -1,4 +1,4 @@
-import { Calendar, User, FileText, Eye, Edit, Trash2 } from 'lucide-react'
+import { Calendar, User, FileText, Eye, Edit, Trash2, CheckCircle } from 'lucide-react'
 import Button from '../common/Button'
 
 const estadoColors = {
@@ -113,6 +113,18 @@ function IncidenciaList({
                       title="Eliminar"
                     >
                       <Trash2 size={16} />
+                    </Button>
+                  )}
+
+                  {!readonly && (userRole === 'administrador' || userRole === 'prefecto') &&
+                    incidencia.estado !== 'cerrada' && (
+                    <Button
+                      variant="success"
+                      size="small"
+                      onClick={() => onChangeStatus(incidencia.id, 'cerrada')}
+                      title="Cerrar incidencia"
+                    >
+                      <CheckCircle size={16} />
                     </Button>
                   )}
 

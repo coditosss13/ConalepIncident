@@ -18,8 +18,16 @@ function Dashboard() {
       setLoading(true)
       try {
         // Cargar estadísticas de incidencias para todos los roles
-        const incidenciasRes = await incidenciasApi.getAll({ page: 1, limit: 200 })
-        const incidencias = incidenciasRes.data || []
+        const [incidenciasActivasRes, incidenciasCerradasRes] = await Promise.all([
+          incidenciasApi.getAll({ page: 1, limit: 200 }),
+          incidenciasApi.getAll({ page: 1, limit: 200, estado: 'cerrada' })
+        ])
+
+        const incidenciasActivas = incidenciasActivasRes.data || []
+        const incidenciasCerradas = incidenciasCerradasRes.data || []
+        const incidencias = [...incidenciasActivas, ...incidenciasCerradas]
+          .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+
         setActividadReciente(incidencias.slice(0, 5))
         const porEstadoMap = incidencias.reduce((acc, incidencia) => {
           acc[incidencia.estado] = (acc[incidencia.estado] || 0) + 1
