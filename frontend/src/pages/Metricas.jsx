@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import metricasApi from '../api/metricas.api'
 import gruposApi from '../api/grupos.api'
 import Alert from '../components/common/Alert'
@@ -15,6 +15,25 @@ function Metricas() {
     severidad_id: ''
   })
   const [grupos, setGrupos] = useState([])
+
+  const porSemestreConsolidado = useMemo(() => {
+    const items = dashboard?.por_semestre || []
+    const acumulado = new Map()
+
+    items.forEach((item) => {
+      const semestreNum = Number(item.semestre)
+      if (!Number.isFinite(semestreNum)) return
+      const actual = acumulado.get(semestreNum) || 0
+      acumulado.set(semestreNum, actual + Number(item.total_incidencias || 0))
+    })
+
+    return Array.from(acumulado.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([semestre, total]) => ({
+        semestre,
+        total_incidencias: total
+      }))
+  }, [dashboard?.por_semestre])
 
   const severidades = [
     { id: 1, nombre: 'Leve' },
@@ -338,7 +357,7 @@ function Metricas() {
           <div className="card">
             <h3 className="font-semibold text-gray-700 mb-4">Incidencias por Semestre</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {dashboard.por_semestre.map((sem, idx) => (
+              {porSemestreConsolidado.map((sem, idx) => (
                 <div key={idx} className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-2xl font-bold text-primary">
                     {sem.total_incidencias}

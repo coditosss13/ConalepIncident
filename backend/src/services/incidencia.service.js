@@ -193,6 +193,9 @@ class IncidenciaService {
     if (incidencia.estado === 'cerrada') {
       throw new Error('La incidencia está cerrada y no puede cambiar de estado');
     }
+    if (incidencia.estado === estado) {
+      throw new Error(`La incidencia ya está en estado ${estado}`);
+    }
     await incidencia.update({ estado });
     return incidencia;
   }

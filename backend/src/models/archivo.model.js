@@ -24,6 +24,15 @@ const Archivo = sequelize.define('Archivo', {
     },
     comment: 'NULL si el archivo es general a la incidencia'
   },
+  seguimiento_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'seguimientos',
+      key: 'id'
+    },
+    comment: 'NULL si no está ligado a un seguimiento específico'
+  },
   nombre_archivo: {
     type: DataTypes.STRING(255),
     allowNull: false

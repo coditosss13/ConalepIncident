@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS archivos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   incidencia_id INT NOT NULL,
   alumno_id INT NULL,
+  seguimiento_id INT NULL,
   nombre_archivo VARCHAR(255),
   nombre_original VARCHAR(255),
   tipo VARCHAR(50),
@@ -124,6 +125,8 @@ CREATE TABLE IF NOT EXISTS archivos (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_archivos_incidencia FOREIGN KEY (incidencia_id) REFERENCES incidencias(id),
   CONSTRAINT fk_archivos_alumno FOREIGN KEY (alumno_id) REFERENCES alumnos(id),
+  CONSTRAINT fk_archivos_seguimiento FOREIGN KEY (seguimiento_id) REFERENCES seguimientos(id),
+  INDEX idx_archivos_seguimiento (seguimiento_id),
   INDEX idx_archivos_incidencia (incidencia_id)
 );
 

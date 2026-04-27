@@ -10,6 +10,15 @@ const acuerdosApi = {
     return response.data
   },
 
+  generarDescarga: async (incidenciaId) => {
+    const response = await axios.post('/acuerdos/generar-descarga', {
+      incidencia_id: incidenciaId
+    }, {
+      responseType: 'blob'
+    })
+    return response
+  },
+
   descargar: async (id) => {
     const response = await axios.get(`/acuerdos/${id}/descargar`, {
       responseType: 'blob'

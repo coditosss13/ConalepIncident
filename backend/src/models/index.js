@@ -84,6 +84,8 @@ Incidencia.hasMany(Archivo, { foreignKey: 'incidencia_id', as: 'archivos' });
 // Archivo - Alumno (opcional, puede ser NULL)
 Archivo.belongsTo(Alumno, { foreignKey: 'alumno_id', as: 'alumno' });
 Alumno.hasMany(Archivo, { foreignKey: 'alumno_id', as: 'archivos' });
+Archivo.belongsTo(Seguimiento, { foreignKey: 'seguimiento_id', as: 'seguimiento' });
+Seguimiento.hasMany(Archivo, { foreignKey: 'seguimiento_id', as: 'archivos_adjuntos' });
 
 // ========================================
 // RELACIONES DE ACUERDOS

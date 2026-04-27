@@ -1,10 +1,11 @@
 import axios from './axios'
 
 const archivosApi = {
-  upload: async (incidenciaId, files, alumnoId = null) => {
+  upload: async (incidenciaId, files, alumnoId = null, seguimientoId = null) => {
     const formData = new FormData()
     formData.append('incidencia_id', incidenciaId)
     if (alumnoId) formData.append('alumno_id', alumnoId)
+    if (seguimientoId) formData.append('seguimiento_id', seguimientoId)
     files.forEach(file => formData.append('files', file))
 
     const response = await axios.post('/archivos', formData, {

@@ -101,6 +101,86 @@ class AcuerdoController {
   });
 
   /**
+   * POST /api/acuerdos/generar-descarga
+   * Generar hoja PDF y descargarla sin guardar acuerdo
+   */
+  generarDescarga = asyncHandler(async (req, res) => {
+    const { incidencia_id } = req.body;
+
+    if (!incidencia_id) {
+      throw new AppError('incidencia_id es requerido', 400);
+    }
+
+    const incidencia = await Incidencia.findByPk(incidencia_id);
+    if (!incidencia) {
+      throw new AppError('Incidencia no encontrada', 404);
+    }
+    if (incidencia.estado === 'cerrada') {
+      throw new AppError('No se puede generar hoja para incidencias cerradas', 409);
+    }
+
+    const alumno = await Alumno.findOne({
+      include: [{
+        association: 'incidencias',
+        where: { id: incidencia_id },
+        through: { attributes: [] }
+      }],
+      order: [['id', 'ASC']]
+    });
+
+    if (!alumno) {
+      throw new AppError('La incidencia no tiene alumnos asociados', 409);
+    }
+
+    if (!alumno.nombre_tutor || !alumno.telefono_tutor) {
+      throw new AppError('El alumno asociado no tiene nombre/teléfono de tutor', 409);
+    }
+
+    const filtrosSeguimiento = {
+      incidencia_id: incidencia_id,
+      descripcion: { [require('sequelize').Op.ne]: 'Incidencia registrada en el sistema' }
+    };
+    const ultimoSeguimiento = await Seguimiento.findOne({
+      where: {
+        ...filtrosSeguimiento,
+        alumno_id: alumno.id
+      },
+      order: [['fecha', 'DESC']]
+    }) || await Seguimiento.findOne({
+      where: {
+        ...filtrosSeguimiento,
+        alumno_id: null
+      },
+      order: [['fecha', 'DESC']]
+    });
+
+    if (!ultimoSeguimiento) {
+      throw new AppError('Primero debes guardar un seguimiento para generar la hoja', 409);
+    }
+
+    const resultado = await pdfService.generarAcuerdo(incidencia_id, alumno.id, {
+      seguimientoSesion: ultimoSeguimiento.descripcion,
+      tutorNombre: alumno.nombre_tutor,
+      tutorTelefono: alumno.telefono_tutor,
+      parentesco: alumno.parentesco_tutor || ''
+    });
+
+    const absolutePath = path.join(__dirname, '..', '..', resultado.filePath);
+    if (!fs.existsSync(absolutePath)) {
+      throw new AppError('No se pudo localizar la hoja PDF generada', 500);
+    }
+
+    res.download(absolutePath, `hoja_acuerdo_incidencia_${incidencia_id}.pdf`, (error) => {
+      if (fs.existsSync(absolutePath)) {
+        fs.unlinkSync(absolutePath);
+      }
+      if (error && !res.headersSent) {
+        throw new AppError('No se pudo descargar la hoja generada', 500);
+      }
+    });
+  });
+
+  /**
    * GET /api/acuerdos/:id/descargar
    * Descargar acuerdo
    */

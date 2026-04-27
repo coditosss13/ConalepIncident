@@ -1,4 +1,4 @@
-const { Archivo, Incidencia } = require('../models');
+const { Archivo, Incidencia, Seguimiento } = require('../models');
 const { asyncHandler, AppError } = require('../middlewares/error.middleware');
 const path = require('path');
 const fs = require('fs');
@@ -10,7 +10,7 @@ class ArchivoController {
    * Subir archivo(s) asociado(s) a una incidencia
    */
   upload = asyncHandler(async (req, res) => {
-    const { incidencia_id, alumno_id } = req.body;
+    const { incidencia_id, alumno_id, seguimiento_id } = req.body;
 
     if (!incidencia_id) {
       throw new AppError('El ID de incidencia es requerido', 400);
@@ -28,6 +28,16 @@ class ArchivoController {
       throw new AppError('No se pueden modificar archivos de incidencias cerradas', 409);
     }
 
+    if (seguimiento_id) {
+      const seguimiento = await Seguimiento.findByPk(seguimiento_id);
+      if (!seguimiento) {
+        throw new AppError('Seguimiento no encontrado', 404);
+      }
+      if (Number(seguimiento.incidencia_id) !== Number(incidencia_id)) {
+        throw new AppError('El seguimiento no corresponde a la incidencia', 400);
+      }
+    }
+
     // Determinar tipo de archivo
     const determinarTipo = (mimetype) => {
       if (mimetype.startsWith('image/')) return 'imagen';
@@ -42,6 +52,7 @@ class ArchivoController {
       const archivo = await Archivo.create({
         incidencia_id: parseInt(incidencia_id),
         alumno_id: alumno_id ? parseInt(alumno_id) : null,
+        seguimiento_id: seguimiento_id ? parseInt(seguimiento_id) : null,
         nombre_archivo: file.filename,
         nombre_original: file.originalname,
         tipo: determinarTipo(file.mimetype),
@@ -93,7 +104,8 @@ class ArchivoController {
     const archivos = await Archivo.findAll({
       where: { incidencia_id: incidenciaId },
       include: [
-        { association: 'alumno', attributes: ['id', 'nombre', 'matricula'] }
+        { association: 'alumno', attributes: ['id', 'nombre', 'matricula'] },
+        { association: 'seguimiento', attributes: ['id', 'fecha', 'descripcion'] }
       ],
       order: [['fecha', 'DESC']]
     });

@@ -15,6 +15,12 @@ router.post(
   acuerdoController.generar
 );
 
+router.post(
+  '/generar-descarga',
+  hasRole(['prefecto', 'administrador']),
+  acuerdoController.generarDescarga
+);
+
 // Marcar acuerdo como firmado
 router.patch(
   '/:id/firmar',

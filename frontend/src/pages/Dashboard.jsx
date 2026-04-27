@@ -28,7 +28,7 @@ function Dashboard() {
         const incidencias = [...incidenciasActivas, ...incidenciasCerradas]
           .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 
-        setActividadReciente(incidencias.slice(0, 5))
+        setActividadReciente(incidencias.slice(0, 30))
         const porEstadoMap = incidencias.reduce((acc, incidencia) => {
           acc[incidencia.estado] = (acc[incidencia.estado] || 0) + 1
           return acc
@@ -239,7 +239,7 @@ function Dashboard() {
                 <p>Las incidencias aparecerán aquí cuando se registren</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                 {actividadReciente.map((incidencia) => (
                   <div key={incidencia.id} className="border rounded p-3 flex justify-between items-center">
                     <div>
