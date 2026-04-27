@@ -3,11 +3,22 @@ const { sequelize } = require('../config/database');
 const { Op } = require('sequelize');
 
 class IncidenciaService {
+  applyGrupoSnapshot(incidencia) {
+    if (!incidencia) return incidencia;
+    const snapshot = {
+      id: incidencia.grupo_id,
+      nombre: incidencia.grupo_snapshot || incidencia.grupo?.nombre || 'Sin grupo',
+      semestre: incidencia.semestre_snapshot ?? incidencia.grupo?.semestre ?? null,
+      ciclo_escolar: incidencia.ciclo_escolar_snapshot ?? incidencia.grupo?.ciclo_escolar ?? null
+    };
+    incidencia.setDataValue('grupo', snapshot);
+    return incidencia;
+  }
 
   /**
    * Obtener todas las incidencias con paginación y filtros
    */
-  async getAll({ page = 1, limit = 10, search = '', severidad_id = null, estado = null, grupo_id = null, profesor_id = null }) {
+  async getAll({ page = 1, limit = 10, search = '', severidad_id = null, estado = null, grupo_id = null, semestre = null, profesor_id = null }) {
     const offset = (page - 1) * limit;
 
     const where = {};
@@ -26,6 +37,9 @@ class IncidenciaService {
     }
     if (grupo_id) {
       where.grupo_id = parseInt(grupo_id);
+    }
+    if (semestre) {
+      where.semestre_snapshot = parseInt(semestre);
     }
     if (profesor_id) {
       where.profesor_id = parseInt(profesor_id);
@@ -55,7 +69,7 @@ class IncidenciaService {
     });
 
     return {
-      incidencias: rows,
+      incidencias: rows.map((incidencia) => this.applyGrupoSnapshot(incidencia)),
       pagination: {
         total: count,
         page,
@@ -94,7 +108,7 @@ class IncidenciaService {
       throw new Error('Incidencia no encontrada');
     }
 
-    return incidencia;
+    return this.applyGrupoSnapshot(incidencia);
   }
 
   /**
@@ -138,6 +152,9 @@ class IncidenciaService {
         descripcion,
         severidad_id,
         grupo_id: grupoReferencia.id,
+        grupo_snapshot: grupoReferencia.nombre,
+        semestre_snapshot: grupoReferencia.semestre,
+        ciclo_escolar_snapshot: grupoReferencia.ciclo_escolar || null,
         profesor_id: usuarioId,
         estado: 'abierta'
       }, { transaction });
@@ -173,13 +190,26 @@ class IncidenciaService {
     }
 
     const { titulo, descripcion, severidad_id, grupo_id, estado } = data;
+    let snapshotUpdate = {};
+    if (grupo_id && Number(grupo_id) !== Number(incidencia.grupo_id)) {
+      const nuevoGrupo = await Grupo.findByPk(grupo_id);
+      if (!nuevoGrupo) {
+        throw new Error('Grupo no encontrado');
+      }
+      snapshotUpdate = {
+        grupo_snapshot: nuevoGrupo.nombre,
+        semestre_snapshot: nuevoGrupo.semestre,
+        ciclo_escolar_snapshot: nuevoGrupo.ciclo_escolar || null
+      };
+    }
 
     await incidencia.update({
       titulo: titulo || incidencia.titulo,
       descripcion: descripcion || incidencia.descripcion,
       severidad_id: severidad_id || incidencia.severidad_id,
       grupo_id: grupo_id || incidencia.grupo_id,
-      estado: estado || incidencia.estado
+      estado: estado || incidencia.estado,
+      ...snapshotUpdate
     });
 
     return this.getById(id);

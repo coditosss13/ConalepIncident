@@ -49,6 +49,18 @@ const Incidencia = sequelize.define('Incidencia', {
       key: 'id'
     }
   },
+  grupo_snapshot: {
+    type: DataTypes.STRING(100),
+    allowNull: true
+  },
+  semestre_snapshot: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  ciclo_escolar_snapshot: {
+    type: DataTypes.STRING(20),
+    allowNull: true
+  },
   fecha: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

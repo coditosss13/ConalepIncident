@@ -17,7 +17,7 @@ class IncidenciaController {
    * Listar incidencias con paginación y filtros
    */
   getAll = asyncHandler(async (req, res) => {
-    const { page, limit, search, severidad_id, estado, grupo_id } = req.query;
+    const { page, limit, search, severidad_id, estado, grupo_id, semestre } = req.query;
 
     // Si el usuario no es admin/prefecto, solo ve las propias
     let profesor_id = null;
@@ -32,6 +32,7 @@ class IncidenciaController {
       severidad_id: severidad_id || null,
       estado: estado || null,
       grupo_id: grupo_id || null,
+      semestre: semestre || null,
       profesor_id
     });
 

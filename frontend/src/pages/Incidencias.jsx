@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import incidenciasApi from '../api/incidencias.api'
 import archivosApi from '../api/archivos.api'
+import gruposApi from '../api/grupos.api'
 import Modal from '../components/common/Modal'
 import Alert from '../components/common/Alert'
 import Button from '../components/common/Button'
@@ -28,7 +29,10 @@ function Incidencias() {
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroSeveridad, setFiltroSeveridad] = useState('')
   const [filtroGravedad, setFiltroGravedad] = useState('')
+  const [filtroGrupoId, setFiltroGrupoId] = useState('')
+  const [filtroSemestre, setFiltroSemestre] = useState('')
   const [mostrarCerradas, setMostrarCerradas] = useState(false)
+  const [grupos, setGrupos] = useState([])
 
   // Modales
   const [formModalOpen, setFormModalOpen] = useState(false)
@@ -46,6 +50,8 @@ function Incidencias() {
         limit: 10,
         search,
         estado: filtroEstado || (mostrarCerradas ? 'cerrada' : undefined),
+        grupo_id: filtroGrupoId || undefined,
+        semestre: filtroSemestre || undefined,
         severidad_id: filtroGravedad === 'grave'
           ? 3
           : filtroGravedad === 'no_grave'
@@ -64,7 +70,19 @@ function Incidencias() {
 
   useEffect(() => {
     loadIncidencias()
-  }, [page, filtroEstado, filtroSeveridad, filtroGravedad, mostrarCerradas])
+  }, [page, filtroEstado, filtroSeveridad, filtroGravedad, filtroGrupoId, filtroSemestre, mostrarCerradas])
+
+  useEffect(() => {
+    const loadGrupos = async () => {
+      try {
+        const response = await gruposApi.getAllSimple()
+        setGrupos(response.data || [])
+      } catch (err) {
+        setGrupos([])
+      }
+    }
+    loadGrupos()
+  }, [])
 
   // Handlers
   const handleSearch = (e) => {
@@ -217,6 +235,43 @@ function Incidencias() {
 
           {/* Filtro por estado */}
           <div>
+            <label className="label">Semestre</label>
+            <select
+              className="input"
+              value={filtroSemestre}
+              onChange={(e) => {
+                setFiltroSemestre(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="1">1°</option>
+              <option value="2">2°</option>
+              <option value="3">3°</option>
+              <option value="4">4°</option>
+              <option value="5">5°</option>
+              <option value="6">6°</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Grupo</label>
+            <select
+              className="input"
+              value={filtroGrupoId}
+              onChange={(e) => {
+                setFiltroGrupoId(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Todos</option>
+              {grupos.map((g) => (
+                <option key={g.id} value={g.id}>{g.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="label">Estado</label>
             <select
               className="input"
@@ -264,6 +319,8 @@ function Incidencias() {
               setFiltroEstado('')
               setFiltroSeveridad('')
               setFiltroGravedad('')
+              setFiltroGrupoId('')
+              setFiltroSemestre('')
               setPage(1)
               loadIncidencias()
             }}

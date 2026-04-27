@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import incidenciasApi from '../api/incidencias.api'
 import acuerdosApi from '../api/acuerdos.api'
 import archivosApi from '../api/archivos.api'
+import gruposApi from '../api/grupos.api'
 import Alert from '../components/common/Alert'
 import Button from '../components/common/Button'
 
@@ -14,6 +15,10 @@ function Seguimientos() {
   const [archivosIncidencia, setArchivosIncidencia] = useState([])
   const [verCerradas, setVerCerradas] = useState(false)
   const [archivoSeguimiento, setArchivoSeguimiento] = useState(null)
+  const [grupos, setGrupos] = useState([])
+  const [filtroGrupoId, setFiltroGrupoId] = useState('')
+  const [filtroSemestre, setFiltroSemestre] = useState('')
+  const [filtroTexto, setFiltroTexto] = useState('')
   const incidenciaCerrada = incidenciaActiva?.estado === 'cerrada'
 
   const cargarIncidencias = async () => {
@@ -23,7 +28,9 @@ function Seguimientos() {
       const response = await incidenciasApi.getAll({
         page: 1,
         limit: 50,
-        estado: verCerradas ? 'cerrada' : undefined
+        estado: verCerradas ? 'cerrada' : undefined,
+        grupo_id: filtroGrupoId || undefined,
+        semestre: filtroSemestre || undefined
       })
       setIncidencias(response.data || [])
       if (!incidenciaActiva && response.data?.length) {
@@ -143,7 +150,31 @@ function Seguimientos() {
 
   useEffect(() => {
     cargarIncidencias()
-  }, [verCerradas])
+  }, [verCerradas, filtroGrupoId, filtroSemestre])
+
+  useEffect(() => {
+    const loadGrupos = async () => {
+      try {
+        const response = await gruposApi.getAllSimple()
+        setGrupos(response.data || [])
+      } catch (err) {
+        setGrupos([])
+      }
+    }
+    loadGrupos()
+  }, [])
+
+  const incidenciasFiltradas = useMemo(() => {
+    const texto = filtroTexto.trim().toLowerCase()
+    if (!texto) return incidencias
+    return (incidencias || []).filter((inc) => {
+      const titulo = String(inc.titulo || '').toLowerCase()
+      const descripcion = String(inc.descripcion || '').toLowerCase()
+      const grupo = String(inc.grupo?.nombre || '').toLowerCase()
+      const alumnos = (inc.alumnos || []).map((a) => String(a.nombre || '').toLowerCase()).join(' ')
+      return titulo.includes(texto) || descripcion.includes(texto) || grupo.includes(texto) || alumnos.includes(texto)
+    })
+  }, [incidencias, filtroTexto])
 
   return (
     <div className="space-y-6">
@@ -161,6 +192,53 @@ function Seguimientos() {
         </Button>
       </div>
 
+      <div className="card">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label className="label">Buscar (nombre/título)</label>
+            <input
+              className="input"
+              value={filtroTexto}
+              onChange={(e) => setFiltroTexto(e.target.value)}
+              placeholder="Alumno, grupo o título..."
+            />
+          </div>
+          <div>
+            <label className="label">Semestre</label>
+            <select className="input" value={filtroSemestre} onChange={(e) => setFiltroSemestre(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="1">1°</option>
+              <option value="2">2°</option>
+              <option value="3">3°</option>
+              <option value="4">4°</option>
+              <option value="5">5°</option>
+              <option value="6">6°</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Grupo</label>
+            <select className="input" value={filtroGrupoId} onChange={(e) => setFiltroGrupoId(e.target.value)}>
+              <option value="">Todos</option>
+              {grupos.map((g) => (
+                <option key={g.id} value={g.id}>{g.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setFiltroTexto('')
+                setFiltroSemestre('')
+                setFiltroGrupoId('')
+              }}
+            >
+              Limpiar filtros
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {error && <Alert type="error" message={error} onClose={() => setError('')} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
 
@@ -168,7 +246,7 @@ function Seguimientos() {
         <div className="card lg:col-span-1">
           <h2 className="font-semibold mb-3">Incidencias</h2>
           <div className="space-y-2 max-h-[500px] overflow-auto">
-            {incidencias.map((inc) => (
+            {incidenciasFiltradas.map((inc) => (
               <button
                 key={inc.id}
                 onClick={() => seleccionarIncidencia(inc.id)}
@@ -180,6 +258,9 @@ function Seguimientos() {
                 <p className="text-sm text-gray-500 capitalize">{inc.estado}</p>
               </button>
             ))}
+            {incidenciasFiltradas.length === 0 && (
+              <p className="text-sm text-gray-500">No hay incidencias con los filtros seleccionados.</p>
+            )}
           </div>
         </div>
 
